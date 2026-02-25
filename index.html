@@ -1,9 +1,11 @@
-<!DOCTYPE html><html lang="en"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+<!DOCTYPE html>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math Battle: Solo &amp; PvP Edition</title>
+    <title>Math Battle: Solo & PvP Edition</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-primary: #f8f8f8;
@@ -468,7 +470,7 @@
     <!-- MAIN MENU -->
     <div id="main-menu" class="screen">
         <h1>S.2 Math Battle</h1>
-        <p class="subtitle">Identities &amp; Factorisation</p>
+        <p class="subtitle">Identities & Factorisation</p>
         <button class="btn" id="btn-solo-mode">Solo Play</button>
         <button class="btn" id="btn-pvp-mode">Multiplayer (PvP)</button>
     </div>
@@ -522,22 +524,22 @@
                 <div class="hud-label" id="enemy-name">Wild Algebro</div>
                 <div class="hp-bar-container"><div id="enemy-hp" class="hp-bar"></div></div>
             </div>
-            <div class="sprite sprite-enemy" id="enemy-sprite">🦊</div>
+            <div class="sprite sprite-enemy" id="enemy-sprite">&#x1F98A;</div>
 
             <div class="hud hud-player">
                 <div class="hud-label">Mathachu (You)</div>
                 <div class="hp-bar-container"><div id="player-hp" class="hp-bar"></div></div>
             </div>
-            <div class="sprite sprite-player" id="player-sprite">🐭</div>
+            <div class="sprite sprite-player" id="player-sprite">&#x1F42D;</div>
         </div>
 
         <div id="dialog-box">
             <div id="question-area">Get ready...</div>
             <div id="options-area">
-                <button class="option-btn" id="opt0" disabled=""></button>
-                <button class="option-btn" id="opt1" disabled=""></button>
-                <button class="option-btn" id="opt2" disabled=""></button>
-                <button class="option-btn" id="opt3" disabled=""></button>
+                <button class="option-btn" id="opt0" disabled></button>
+                <button class="option-btn" id="opt1" disabled></button>
+                <button class="option-btn" id="opt2" disabled></button>
+                <button class="option-btn" id="opt3" disabled></button>
             </div>
         </div>
     </div>
@@ -922,6 +924,34 @@
         document.getElementById('btn-join').disabled = false;
     }
 
+    // PeerJS config with proper STUN/TURN for NAT traversal
+    var peerConfig = {
+        secure: true,
+        host: '0.peerjs.com',
+        port: 443,
+        path: '/',
+        debug: 1,
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun.cloudflare.com:3478' },
+                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+            ]
+        }
+    };
+
+    var connectionTimeout = null;
+
+    function clearConnectionTimeout() {
+        if (connectionTimeout) {
+            clearTimeout(connectionTimeout);
+            connectionTimeout = null;
+        }
+    }
+
     function setupHost(level) {
         mode = 'pvp';
         difficulty = level;
@@ -930,22 +960,75 @@
         showStatus('Creating Room...');
 
         var roomId = 'math-' + Math.random().toString(36).substring(2, 6);
-        peer = new Peer(roomId);
+
+        // Clean up any existing peer
+        if (peer) {
+            try { peer.destroy(); } catch(e) { /* ignore */ }
+        }
+
+        peer = new Peer(roomId, peerConfig);
+
+        // Timeout if server doesn't respond in 12 seconds
+        clearConnectionTimeout();
+        connectionTimeout = setTimeout(function() {
+            if (!peer || !peer.open) {
+                showStatus('Server not responding. Retrying...');
+                try { peer.destroy(); } catch(e) { /* ignore */ }
+                // Retry once with a different ID
+                var retryId = 'math-' + Math.random().toString(36).substring(2, 6);
+                peer = new Peer(retryId, peerConfig);
+                peer.on('open', function(id) {
+                    clearConnectionTimeout();
+                    showStatus('Share this Room ID:');
+                    document.getElementById('room-id-container').style.display = 'block';
+                    document.getElementById('room-id-text').innerText = id;
+                });
+                peer.on('connection', function(connection) {
+                    clearConnectionTimeout();
+                    conn = connection;
+                    setupPvPConnection();
+                });
+                peer.on('error', function(err) {
+                    clearConnectionTimeout();
+                    showStatus('Could not connect to server. Please try again later.');
+                    enablePvPButtons();
+                });
+                // Final timeout
+                connectionTimeout = setTimeout(function() {
+                    if (!peer || !peer.open) {
+                        showStatus('Server unreachable. Try again later.');
+                        enablePvPButtons();
+                        try { peer.destroy(); } catch(e) { /* ignore */ }
+                    }
+                }, 12000);
+            }
+        }, 12000);
 
         peer.on('open', function(id) {
+            clearConnectionTimeout();
             showStatus('Share this Room ID:');
             document.getElementById('room-id-container').style.display = 'block';
             document.getElementById('room-id-text').innerText = id;
         });
 
         peer.on('connection', function(connection) {
+            clearConnectionTimeout();
             conn = connection;
             setupPvPConnection();
         });
 
         peer.on('error', function(err) {
+            clearConnectionTimeout();
             showStatus('Error: ' + err.type + '. Try again.');
             enablePvPButtons();
+        });
+
+        peer.on('disconnected', function() {
+            // Try to reconnect to signaling server
+            if (!gameOver && peer && !peer.destroyed) {
+                showStatus('Reconnecting to server...');
+                try { peer.reconnect(); } catch(e) { /* ignore */ }
+            }
         });
     }
 
@@ -958,9 +1041,22 @@
             return;
         }
 
+        // Clean up any existing peer
+        if (peer) {
+            try { peer.destroy(); } catch(e) { /* ignore */ }
+        }
+
         disablePvPButtons();
         showStatus('Connecting to ' + joinId + '...');
-        peer = new Peer();
+        peer = new Peer(undefined, peerConfig);
+
+        // Timeout if connection takes too long
+        clearConnectionTimeout();
+        connectionTimeout = setTimeout(function() {
+            showStatus('Connection timed out. Check Room ID and try again.');
+            enablePvPButtons();
+            try { peer.destroy(); } catch(e) { /* ignore */ }
+        }, 15000);
 
         peer.on('open', function() {
             conn = peer.connect(joinId, { reliable: true });
@@ -968,13 +1064,29 @@
         });
 
         peer.on('error', function(err) {
-            showStatus('Error: ' + err.type + '. Check the Room ID.');
+            clearConnectionTimeout();
+            var msg = 'Error: ' + err.type + '.';
+            if (err.type === 'peer-unavailable') {
+                msg = 'Room not found! Check the Room ID.';
+            } else if (err.type === 'network') {
+                msg = 'Network error. Check your connection.';
+            } else if (err.type === 'server-error') {
+                msg = 'Server error. Try again later.';
+            }
+            showStatus(msg);
             enablePvPButtons();
+        });
+
+        peer.on('disconnected', function() {
+            if (!gameOver && peer && !peer.destroyed) {
+                try { peer.reconnect(); } catch(e) { /* ignore */ }
+            }
         });
     }
 
     function setupPvPConnection() {
         conn.on('open', function() {
+            clearConnectionTimeout();
             gameOver = false;
             maxHP = 200;
             playerHP = maxHP;
@@ -1235,7 +1347,5 @@
         }, 20);
     }
 </script>
-
-
-
-</body></html>
+</body>
+</html>

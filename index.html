@@ -1,0 +1,1241 @@
+<!DOCTYPE html><html lang="en"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Battle: Solo &amp; PvP Edition</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f8f8f8;
+            --bg-gradient-top: #74ebd5;
+            --bg-gradient-bottom: #ACB6E5;
+            --text-primary: #2c3e50;
+            --text-secondary: #333;
+            --border-color: #333;
+            --hud-bg: #fff;
+            --dialog-bg: #fff;
+            --dialog-border: #ccc;
+            --btn-bg: #fff;
+            --btn-hover: #eee;
+            --option-hover: #f0f0f0;
+            --hp-bar-bg: #ccc;
+            --body-bg: #2c3e50;
+            --shadow-color: rgba(0,0,0,0.2);
+            --damage-shadow: white;
+            --battle-sky-top: #a1c4fd;
+            --battle-sky-mid: #c2e9fb;
+            --battle-ground-top: #d4fc79;
+            --battle-ground-bottom: #96e6a1;
+            --input-bg: #fff;
+            --input-text: #333;
+            --status-color: #c0392b;
+            --wrong-bg: #ffcccc;
+            --disabled-bg: #f5f5f5;
+            --disabled-text: #999;
+            --dashed-border: #555;
+            --timer-bg: #fff;
+        }
+
+        html.dark {
+            --bg-primary: #1a1a2e;
+            --bg-gradient-top: #0f3443;
+            --bg-gradient-bottom: #34495e;
+            --text-primary: #ecf0f1;
+            --text-secondary: #ddd;
+            --border-color: #5a6a7a;
+            --hud-bg: #16213e;
+            --dialog-bg: #16213e;
+            --dialog-border: #2c3e50;
+            --btn-bg: #1a1a3e;
+            --btn-hover: #2a2a4e;
+            --option-hover: #2a2a4e;
+            --hp-bar-bg: #444;
+            --body-bg: #0a0a1a;
+            --shadow-color: rgba(0,0,0,0.5);
+            --damage-shadow: #333;
+            --battle-sky-top: #1a1a3e;
+            --battle-sky-mid: #16213e;
+            --battle-ground-top: #1a3a1a;
+            --battle-ground-bottom: #0d2e0d;
+            --input-bg: #16213e;
+            --input-text: #ecf0f1;
+            --status-color: #e67e22;
+            --wrong-bg: #4a1a1a;
+            --disabled-bg: #1a1a2e;
+            --disabled-text: #555;
+            --dashed-border: #7a8a9a;
+            --timer-bg: #16213e;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Press Start 2P', monospace;
+            background-color: var(--body-bg);
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            min-height: 100dvh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            max-width: 800px;
+            max-height: 700px;
+            background-color: var(--bg-primary);
+            border: 4px solid var(--border-color);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Screens */
+        .screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: linear-gradient(to bottom, var(--bg-gradient-top), var(--bg-gradient-bottom));
+            padding: 16px;
+            overflow-y: auto;
+        }
+        #main-menu { display: flex; }
+
+        h1 {
+            font-size: clamp(14px, 3.5vw, 26px);
+            line-height: 1.6;
+            color: var(--text-primary);
+            text-shadow: 2px 2px var(--shadow-color);
+            margin-bottom: 16px;
+        }
+        h2 {
+            font-size: clamp(12px, 2.8vw, 18px);
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            text-shadow: 1px 1px var(--shadow-color);
+        }
+
+        .subtitle {
+            font-size: clamp(9px, 1.8vw, 12px);
+            margin-bottom: 24px;
+            color: var(--text-primary);
+            opacity: 0.8;
+        }
+
+        .btn {
+            font-family: 'Press Start 2P', monospace;
+            background-color: var(--btn-bg);
+            border: 4px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 12px 16px;
+            margin: 6px;
+            cursor: pointer;
+            font-size: clamp(9px, 2vw, 14px);
+            transition: transform 0.1s, background-color 0.2s;
+            border-radius: 6px;
+            max-width: 95%;
+            -webkit-tap-highlight-color: transparent;
+            line-height: 1.5;
+        }
+        .btn:hover:not(:disabled) { background-color: var(--btn-hover); transform: scale(1.05); }
+        .btn:active:not(:disabled) { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-small {
+            font-size: clamp(8px, 1.6vw, 10px);
+            padding: 10px 14px;
+        }
+
+        .btn-back {
+            margin-top: 20px;
+            font-size: clamp(8px, 1.5vw, 10px);
+            opacity: 0.7;
+        }
+
+        .input-box {
+            font-family: 'Press Start 2P', monospace;
+            padding: 12px;
+            font-size: 16px;
+            border: 4px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 10px;
+            text-align: center;
+            width: min(280px, 90%);
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            outline: none;
+        }
+        .input-box:focus { border-color: #3498db; }
+
+        .pvp-section {
+            border: 2px dashed var(--dashed-border);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 14px;
+            width: min(400px, 95%);
+        }
+        .pvp-section-label {
+            font-size: clamp(8px, 1.5vw, 11px);
+            margin-bottom: 10px;
+            color: var(--text-primary);
+            opacity: 0.8;
+        }
+
+        .pvp-host-btns {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        #connection-status {
+            margin-top: 12px;
+            font-size: clamp(8px, 1.5vw, 12px);
+            color: var(--status-color);
+            line-height: 1.8;
+            max-width: 90%;
+            word-break: break-all;
+        }
+
+        /* Room ID display */
+        .room-id-display {
+            background: var(--btn-bg);
+            border: 3px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin: 8px 0;
+            font-size: clamp(12px, 2.5vw, 18px);
+            color: var(--text-primary);
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            position: relative;
+            display: inline-block;
+        }
+        .room-id-display:active { transform: scale(0.96); }
+        .room-id-tooltip {
+            position: absolute;
+            bottom: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 7px;
+            color: #2ecc71;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+        .room-id-tooltip.show { opacity: 1; }
+
+        /* Battle Scene */
+        #battle-screen {
+            background: linear-gradient(
+                to bottom,
+                var(--battle-sky-top) 0%,
+                var(--battle-sky-mid) 48%,
+                var(--battle-ground-top) 50%,
+                var(--battle-ground-bottom) 100%
+            );
+            display: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .battle-area {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+        }
+
+        .hud {
+            background: var(--hud-bg);
+            border: 3px solid var(--border-color);
+            border-radius: 8px;
+            padding: 7px 10px;
+            position: absolute;
+            width: clamp(125px, 33vw, 250px);
+            font-size: clamp(6px, 1.3vw, 11px);
+            color: var(--text-secondary);
+            z-index: 2;
+        }
+        .hud-label {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+        .hud-enemy { top: 10px; left: 10px; }
+        .hud-player { bottom: 10px; right: 10px; }
+
+        .hp-bar-container {
+            width: 100%;
+            height: 11px;
+            background-color: var(--hp-bar-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .hp-bar {
+            height: 100%;
+            background-color: #2ecc71;
+            width: 100%;
+            transition: width 0.4s ease, background-color 0.3s;
+            border-radius: 3px;
+        }
+
+        .sprite {
+            font-size: clamp(46px, 11vw, 100px);
+            position: absolute;
+            transition: transform 0.2s;
+            z-index: 1;
+            filter: drop-shadow(0 4px 8px var(--shadow-color));
+        }
+        .sprite-enemy { top: 14%; right: 10%; }
+        .sprite-player { bottom: 14%; left: 10%; transform: scaleX(-1); }
+
+        /* Timer */
+        #timer-container {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--timer-bg);
+            border: 3px solid var(--border-color);
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: clamp(7px, 1.3vw, 12px);
+            text-align: center;
+            color: var(--text-secondary);
+            z-index: 3;
+        }
+        #timer-bar-wrap {
+            width: clamp(50px, 12vw, 100px);
+            height: 8px;
+            background: var(--hp-bar-bg);
+            border-radius: 4px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        #timer-bar {
+            width: 100%;
+            height: 100%;
+            background: #e74c3c;
+            border-radius: 4px;
+            transition: width 0.1s linear;
+        }
+
+        /* Dialog & Controls */
+        #dialog-box {
+            width: 100%;
+            min-height: 175px;
+            background: var(--dialog-bg);
+            border-top: 4px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        #question-area {
+            padding: 10px 12px;
+            font-size: clamp(8px, 1.7vw, 13px);
+            min-height: 46px;
+            border-bottom: 2px solid var(--dialog-border);
+            line-height: 1.6;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        #options-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            flex: 1;
+            min-height: 115px;
+        }
+        .option-btn {
+            font-family: 'Press Start 2P', monospace;
+            background: transparent;
+            border: none;
+            border-right: 2px solid var(--dialog-border);
+            border-bottom: 2px solid var(--dialog-border);
+            font-size: clamp(7px, 1.5vw, 12px);
+            cursor: pointer;
+            padding: 7px 4px;
+            color: var(--text-secondary);
+            transition: background-color 0.15s;
+            -webkit-tap-highlight-color: transparent;
+            line-height: 1.4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            word-break: break-word;
+        }
+        .option-btn:hover:not(:disabled) { background-color: var(--option-hover); }
+        .option-btn:active:not(:disabled) { background-color: var(--option-hover); }
+        .option-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .option-btn:nth-child(2n) { border-right: none; }
+        .option-btn:nth-child(n+3) { border-bottom: none; }
+
+        .option-btn.correct-flash {
+            background-color: #2ecc71 !important;
+            color: #fff !important;
+            opacity: 1 !important;
+        }
+        .option-btn.wrong-flash {
+            background-color: var(--wrong-bg) !important;
+            opacity: 0.5 !important;
+        }
+
+        .damage-text {
+            position: absolute;
+            font-size: clamp(16px, 3vw, 24px);
+            font-weight: bold;
+            color: #e74c3c;
+            text-shadow: 2px 2px var(--damage-shadow);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+        .shake { animation: shake 0.4s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .screen.active-screen { animation: fadeIn 0.3s ease; }
+
+        /* Game over */
+        #game-over-screen h1 {
+            font-size: clamp(20px, 5vw, 36px);
+            margin-bottom: 16px;
+        }
+        #game-over-msg {
+            font-size: clamp(9px, 1.8vw, 12px);
+            line-height: 1.8;
+            margin-bottom: 24px;
+            color: var(--text-primary);
+            max-width: 90%;
+        }
+        #game-over-stats {
+            font-size: clamp(7px, 1.3vw, 10px);
+            color: var(--text-primary);
+            opacity: 0.7;
+            margin-bottom: 16px;
+            line-height: 2;
+        }
+
+        /* Main menu button stagger */
+        #main-menu .btn:nth-child(3) { animation: fadeIn 0.4s ease 0.1s both; }
+        #main-menu .btn:nth-child(4) { animation: fadeIn 0.4s ease 0.2s both; }
+
+        @media (max-width: 500px) {
+            #game-container { border: none; border-radius: 0; }
+            .hud { padding: 5px 7px; }
+            #dialog-box { min-height: 155px; }
+            #options-area { min-height: 100px; }
+            .pvp-section { padding: 10px; }
+        }
+        @media (max-height: 500px) {
+            .sprite { font-size: clamp(34px, 8vw, 56px); }
+            #dialog-box { min-height: 135px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+
+    <!-- MAIN MENU -->
+    <div id="main-menu" class="screen">
+        <h1>S.2 Math Battle</h1>
+        <p class="subtitle">Identities &amp; Factorisation</p>
+        <button class="btn" id="btn-solo-mode">Solo Play</button>
+        <button class="btn" id="btn-pvp-mode">Multiplayer (PvP)</button>
+    </div>
+
+    <!-- SOLO MENU -->
+    <div id="solo-menu" class="screen">
+        <h2>Select Solo Difficulty</h2>
+        <button class="btn" id="btn-solo-easy">Easy (Common Factors)</button>
+        <button class="btn" id="btn-solo-med">Medium (Grouping / Diff Sq)</button>
+        <button class="btn" id="btn-solo-hard">Hard (Perfect Squares)</button>
+        <button class="btn btn-back" id="btn-solo-back">Back</button>
+    </div>
+
+    <!-- PVP MENU -->
+    <div id="pvp-menu" class="screen">
+        <h2>Multiplayer PvP</h2>
+        <div class="pvp-section">
+            <p class="pvp-section-label">HOST A GAME (Choose Difficulty)</p>
+            <div class="pvp-host-btns">
+                <button class="btn btn-small" id="btn-host-easy">Easy</button>
+                <button class="btn btn-small" id="btn-host-med">Med</button>
+                <button class="btn btn-small" id="btn-host-hard">Hard</button>
+            </div>
+        </div>
+        <div class="pvp-section">
+            <p class="pvp-section-label">JOIN A GAME</p>
+            <input type="text" id="join-id" class="input-box" placeholder="Enter Room ID">
+            <br>
+            <button class="btn btn-small" id="btn-join">Join</button>
+        </div>
+        <p id="connection-status"></p>
+        <div id="room-id-container" style="display:none;">
+            <div class="room-id-display" id="room-id-box">
+                <span id="room-id-text"></span>
+                <span class="room-id-tooltip" id="copy-tooltip">Copied!</span>
+            </div>
+            <p style="font-size:7px; margin-top:5px; color:var(--text-primary); opacity:0.5;">Tap to copy</p>
+        </div>
+        <button class="btn btn-back" id="btn-pvp-back">Back</button>
+    </div>
+
+    <!-- BATTLE SCREEN -->
+    <div id="battle-screen" class="screen">
+        <div class="battle-area">
+            <div id="timer-container">
+                <div id="timer-text-display">Time: <span id="time-text">15</span>s</div>
+                <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+            </div>
+
+            <div class="hud hud-enemy">
+                <div class="hud-label" id="enemy-name">Wild Algebro</div>
+                <div class="hp-bar-container"><div id="enemy-hp" class="hp-bar"></div></div>
+            </div>
+            <div class="sprite sprite-enemy" id="enemy-sprite">🦊</div>
+
+            <div class="hud hud-player">
+                <div class="hud-label">Mathachu (You)</div>
+                <div class="hp-bar-container"><div id="player-hp" class="hp-bar"></div></div>
+            </div>
+            <div class="sprite sprite-player" id="player-sprite">🐭</div>
+        </div>
+
+        <div id="dialog-box">
+            <div id="question-area">Get ready...</div>
+            <div id="options-area">
+                <button class="option-btn" id="opt0" disabled=""></button>
+                <button class="option-btn" id="opt1" disabled=""></button>
+                <button class="option-btn" id="opt2" disabled=""></button>
+                <button class="option-btn" id="opt3" disabled=""></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div id="game-over-screen" class="screen">
+        <h1 id="game-over-title">Game Over!</h1>
+        <p id="game-over-msg"></p>
+        <div id="game-over-stats"></div>
+        <button class="btn" id="btn-return">Return to Menu</button>
+    </div>
+</div>
+
+<script>
+    // --- Dark Mode Detection ---
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+    }
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(event) {
+        if (event.matches) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    });
+
+    // --- GLOBAL GAME STATE ---
+    var mode = 'solo';
+    var difficulty = 'easy';
+    var maxHP = 200;
+    var playerHP = maxHP;
+    var enemyHP = maxHP;
+    var currentCorrectAnswer = '';
+    var turnActive = false;
+    var gameOver = false;
+
+    // Solo tracking
+    var timeLimit = 15;
+    var timeLeft = timeLimit;
+    var timerInterval = null;
+    var questionsAnswered = 0;
+    var questionsCorrect = 0;
+    var totalDamageDealt = 0;
+
+    // PvP
+    var peer = null;
+    var conn = null;
+    var isHost = false;
+
+    var SQ = '\u00B2';
+
+    // Enemy sprites by difficulty
+    var enemySprites = {
+        easy: ['\uD83D\uDC22', '\uD83D\uDC1B', '\uD83D\uDC0C', '\uD83E\uDD8E'],
+        medium: ['\uD83D\uDC0D', '\uD83E\uDD87', '\uD83D\uDC3A', '\uD83E\uDD82'],
+        hard: ['\uD83D\uDC09', '\uD83D\uDC7E', '\uD83E\uDD96', '\uD83D\uDC80']
+    };
+
+    // --- UTILITY ---
+    function showScreen(id) {
+        var screens = document.querySelectorAll('.screen');
+        for (var i = 0; i < screens.length; i++) {
+            screens[i].style.display = 'none';
+            screens[i].classList.remove('active-screen');
+        }
+        var target = document.getElementById(id);
+        target.style.display = 'flex';
+        target.classList.add('active-screen');
+    }
+
+    function rand(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function flipSign(s) {
+        return s === '+' ? '-' : '+';
+    }
+
+    function disableButtons() {
+        for (var i = 0; i < 4; i++) {
+            document.getElementById('opt' + i).disabled = true;
+        }
+    }
+
+    function showStatus(msg) {
+        document.getElementById('connection-status').innerText = msg;
+    }
+
+    // --- BIND ALL BUTTONS ---
+    document.getElementById('btn-solo-mode').addEventListener('click', function() { showScreen('solo-menu'); });
+    document.getElementById('btn-pvp-mode').addEventListener('click', function() { showScreen('pvp-menu'); });
+    document.getElementById('btn-solo-back').addEventListener('click', function() { showScreen('main-menu'); });
+    document.getElementById('btn-pvp-back').addEventListener('click', function() { showScreen('main-menu'); });
+
+    document.getElementById('btn-solo-easy').addEventListener('click', function() { startSolo('easy'); });
+    document.getElementById('btn-solo-med').addEventListener('click', function() { startSolo('medium'); });
+    document.getElementById('btn-solo-hard').addEventListener('click', function() { startSolo('hard'); });
+
+    document.getElementById('btn-host-easy').addEventListener('click', function() { setupHost('easy'); });
+    document.getElementById('btn-host-med').addEventListener('click', function() { setupHost('medium'); });
+    document.getElementById('btn-host-hard').addEventListener('click', function() { setupHost('hard'); });
+    document.getElementById('btn-join').addEventListener('click', setupJoin);
+
+    document.getElementById('btn-return').addEventListener('click', function() { location.reload(); });
+
+    // Copy room ID on tap
+    document.getElementById('room-id-box').addEventListener('click', function() {
+        var roomText = document.getElementById('room-id-text').innerText;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(roomText).then(function() {
+                var tooltip = document.getElementById('copy-tooltip');
+                tooltip.classList.add('show');
+                setTimeout(function() { tooltip.classList.remove('show'); }, 1500);
+            });
+        }
+    });
+
+    // Enter key to join
+    document.getElementById('join-id').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') setupJoin();
+    });
+
+    // Option buttons via event delegation
+    document.getElementById('options-area').addEventListener('click', function(e) {
+        var btn = e.target.closest('.option-btn');
+        if (!btn || btn.disabled || gameOver) return;
+        handleAnswerClick(btn.getAttribute('data-answer'), btn);
+    });
+
+    // --- MATH GENERATION ENGINE ---
+    function generateQuestionData() {
+        var type = Math.random() < 0.5 ? 'expand' : 'factorise';
+        var qText = '';
+        var correct = '';
+        var wrongs = [];
+
+        if (difficulty === 'easy') {
+            // Common factors: a(bv + c) or abv + ac
+            var a = rand(2, 6);
+            var b = rand(2, 5);
+            var c = rand(2, 7);
+            var sign = Math.random() < 0.5 ? '+' : '-';
+            var v1 = Math.random() < 0.5 ? 'x' : 'y';
+
+            if (type === 'expand') {
+                qText = 'Expand: ' + a + '(' + b + v1 + ' ' + sign + ' ' + c + ')';
+                correct = (a * b) + v1 + ' ' + sign + ' ' + (a * c);
+                wrongs = [
+                    (a * b) + v1 + ' ' + sign + ' ' + c,
+                    b + v1 + ' ' + sign + ' ' + (a * c),
+                    (a * b) + v1 + ' ' + flipSign(sign) + ' ' + (a * c)
+                ];
+            } else {
+                qText = 'Factorise: ' + (a * b) + v1 + ' ' + sign + ' ' + (a * c);
+                correct = a + '(' + b + v1 + ' ' + sign + ' ' + c + ')';
+                wrongs = [
+                    a + '(' + b + v1 + ' ' + flipSign(sign) + ' ' + c + ')',
+                    (a * b) + '(' + v1 + ' ' + sign + ' ' + c + ')',
+                    a + '(' + b + v1 + ' ' + sign + ' ' + (a * c) + ')'
+                ];
+            }
+
+        } else if (difficulty === 'medium') {
+            // Grouping or Difference of Squares
+            var isGrouping = Math.random() < 0.5;
+
+            if (isGrouping) {
+                // Grouping: x(y + a) + c(y + a) = (x + c)(y + a)
+                var ga = rand(2, 6);
+                var gc = rand(2, 5);
+
+                if (type === 'expand') {
+                    // Expand: (x + c)(y + a) = xy + ax + cy + ca
+                    qText = 'Expand: (x + ' + gc + ')(y + ' + ga + ')';
+                    correct = 'xy + ' + ga + 'x + ' + gc + 'y + ' + (gc * ga);
+                    wrongs = [
+                        'xy + ' + gc + 'x + ' + ga + 'y + ' + (gc * ga),
+                        'xy + ' + (gc + ga) + 'xy + ' + (gc * ga),
+                        'xy + ' + ga + 'x + ' + gc + 'y - ' + (gc * ga)
+                    ];
+                } else {
+                    qText = 'Factorise: x(y + ' + ga + ') + ' + gc + '(y + ' + ga + ')';
+                    correct = '(x + ' + gc + ')(y + ' + ga + ')';
+                    wrongs = [
+                        '(x - ' + gc + ')(y + ' + ga + ')',
+                        gc + 'x(y + ' + ga + ')',
+                        '(x + ' + gc + ')(y - ' + ga + ')'
+                    ];
+                }
+            } else {
+                // Difference of Squares: (ax - b)(ax + b) = a²x² - b²
+                var da = rand(1, 4);
+                var db = rand(2, 6);
+                var daTerm = da === 1 ? 'x' : da + 'x';
+                var da2Str = da === 1 ? '' : String(da * da);
+
+                if (type === 'expand') {
+                    qText = 'Expand: (' + daTerm + ' - ' + db + ')(' + daTerm + ' + ' + db + ')';
+                    correct = da2Str + 'x' + SQ + ' - ' + (db * db);
+                    wrongs = [
+                        da2Str + 'x' + SQ + ' + ' + (db * db),
+                        da2Str + 'x' + SQ + ' - ' + db,
+                        da2Str + 'x' + SQ + ' - ' + (2 * db) + 'x'
+                    ];
+                } else {
+                    qText = 'Factorise: ' + da2Str + 'x' + SQ + ' - ' + (db * db);
+                    correct = '(' + daTerm + ' - ' + db + ')(' + daTerm + ' + ' + db + ')';
+                    wrongs = [
+                        '(' + daTerm + ' - ' + db + ')' + SQ,
+                        '(' + daTerm + ' + ' + db + ')' + SQ,
+                        '(' + daTerm + ' - ' + (db * db) + ')(' + daTerm + ' + 1)'
+                    ];
+                }
+            }
+
+        } else {
+            // Hard: Perfect Squares (ax +/- b)^2
+            var pa = rand(1, 3);
+            var pb = rand(1, 5);
+            var psign = Math.random() < 0.5 ? '+' : '-';
+            var paTerm = pa === 1 ? 'x' : pa + 'x';
+            var pa2Str = pa === 1 ? '' : String(pa * pa);
+            var twoAB = 2 * pa * pb;
+
+            if (type === 'expand') {
+                qText = 'Expand: (' + paTerm + ' ' + psign + ' ' + pb + ')' + SQ;
+                correct = pa2Str + 'x' + SQ + ' ' + psign + ' ' + twoAB + 'x + ' + (pb * pb);
+                wrongs = [
+                    pa2Str + 'x' + SQ + ' + ' + (pb * pb),
+                    pa2Str + 'x' + SQ + ' ' + flipSign(psign) + ' ' + twoAB + 'x + ' + (pb * pb),
+                    pa2Str + 'x' + SQ + ' ' + psign + ' ' + (pa * pb) + 'x + ' + (pb * pb)
+                ];
+            } else {
+                qText = 'Factorise: ' + pa2Str + 'x' + SQ + ' ' + psign + ' ' + twoAB + 'x + ' + (pb * pb);
+                correct = '(' + paTerm + ' ' + psign + ' ' + pb + ')' + SQ;
+                wrongs = [
+                    '(' + paTerm + ' ' + flipSign(psign) + ' ' + pb + ')' + SQ,
+                    '(' + paTerm + ' ' + psign + ' ' + (pb * pb) + ')' + SQ,
+                    '(' + paTerm + ' - ' + pb + ')(' + paTerm + ' + ' + pb + ')'
+                ];
+            }
+        }
+
+        return { q: qText, ans: correct, wrong: wrongs };
+    }
+
+    // --- SHARED BATTLE RENDERING ---
+    function renderQuestionUI(qText, ans, options) {
+        document.getElementById('question-area').innerText = qText;
+        currentCorrectAnswer = ans;
+
+        for (var i = 0; i < 4; i++) {
+            var btn = document.getElementById('opt' + i);
+            btn.innerText = options[i];
+            btn.disabled = false;
+            btn.className = 'option-btn';
+            btn.setAttribute('data-answer', options[i]);
+        }
+    }
+
+    function shuffleOptions(qData) {
+        var options = [qData.ans, qData.wrong[0], qData.wrong[1], qData.wrong[2]];
+        for (var i = options.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var temp = options[i];
+            options[i] = options[j];
+            options[j] = temp;
+        }
+        return options;
+    }
+
+    function flashCorrectAnswer() {
+        for (var i = 0; i < 4; i++) {
+            var btn = document.getElementById('opt' + i);
+            if (btn.getAttribute('data-answer') === currentCorrectAnswer) {
+                btn.classList.add('correct-flash');
+            }
+        }
+    }
+
+    // --- SOLO MODE ---
+    function startSolo(level) {
+        mode = 'solo';
+        difficulty = level;
+        gameOver = false;
+        questionsAnswered = 0;
+        questionsCorrect = 0;
+        totalDamageDealt = 0;
+
+        if (level === 'easy') { maxHP = 150; timeLimit = 18; }
+        else if (level === 'medium') { maxHP = 250; timeLimit = 15; }
+        else { maxHP = 350; timeLimit = 12; }
+
+        playerHP = 150;
+        enemyHP = maxHP;
+
+        var levelLabels = { easy: 'E', medium: 'M', hard: 'H' };
+        document.getElementById('enemy-name').innerText = 'Wild Algebro (Lv.' + levelLabels[level] + ')';
+
+        // Pick random enemy sprite
+        var sprites = enemySprites[level] || enemySprites.easy;
+        document.getElementById('enemy-sprite').innerText = sprites[rand(0, sprites.length - 1)];
+
+        // Show timer for solo
+        document.getElementById('timer-container').style.display = 'block';
+        document.getElementById('timer-text-display').innerHTML = 'Time: <span id="time-text">15</span>s';
+        document.getElementById('timer-bar-wrap').style.display = 'block';
+
+        updateHP();
+        showScreen('battle-screen');
+        nextSoloTurn();
+    }
+
+    function nextSoloTurn() {
+        if (gameOver) return;
+        turnActive = true;
+        var qData = generateQuestionData();
+        var options = shuffleOptions(qData);
+        renderQuestionUI(qData.q, qData.ans, options);
+        resetTimer();
+    }
+
+    function resetTimer() {
+        clearInterval(timerInterval);
+        timeLeft = timeLimit;
+        updateTimerUI();
+        timerInterval = setInterval(function() {
+            timeLeft -= 0.1;
+            updateTimerUI();
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                handleSoloTimeout();
+            }
+        }, 100);
+    }
+
+    function updateTimerUI() {
+        var timeTextEl = document.getElementById('time-text');
+        if (timeTextEl) timeTextEl.innerText = Math.ceil(timeLeft);
+        var pct = Math.max(0, (timeLeft / timeLimit) * 100);
+        document.getElementById('timer-bar').style.width = pct + '%';
+
+        if (timeLeft <= 3) {
+            document.getElementById('timer-bar').style.backgroundColor = '#c0392b';
+        } else if (timeLeft <= 7) {
+            document.getElementById('timer-bar').style.backgroundColor = '#e67e22';
+        } else {
+            document.getElementById('timer-bar').style.backgroundColor = '#e74c3c';
+        }
+    }
+
+    function handleSoloTimeout() {
+        if (!turnActive || gameOver) return;
+        turnActive = false;
+        questionsAnswered++;
+        disableButtons();
+        flashCorrectAnswer();
+        animateSprite('enemy-sprite');
+        var dmg = 25;
+        playerHP -= dmg;
+        showDamage('player-sprite', dmg);
+        shakeElement('player-sprite');
+        document.getElementById('question-area').innerText = "Time's up! Algebro dealt " + dmg + " damage!";
+        setTimeout(function() {
+            updateHP();
+            checkWinLoss();
+        }, 1500);
+    }
+
+    // --- PVP MODE ---
+    function disablePvPButtons() {
+        document.getElementById('btn-host-easy').disabled = true;
+        document.getElementById('btn-host-med').disabled = true;
+        document.getElementById('btn-host-hard').disabled = true;
+        document.getElementById('btn-join').disabled = true;
+    }
+
+    function enablePvPButtons() {
+        document.getElementById('btn-host-easy').disabled = false;
+        document.getElementById('btn-host-med').disabled = false;
+        document.getElementById('btn-host-hard').disabled = false;
+        document.getElementById('btn-join').disabled = false;
+    }
+
+    function setupHost(level) {
+        mode = 'pvp';
+        difficulty = level;
+        isHost = true;
+        disablePvPButtons();
+        showStatus('Creating Room...');
+
+        var roomId = 'math-' + Math.random().toString(36).substring(2, 6);
+        peer = new Peer(roomId);
+
+        peer.on('open', function(id) {
+            showStatus('Share this Room ID:');
+            document.getElementById('room-id-container').style.display = 'block';
+            document.getElementById('room-id-text').innerText = id;
+        });
+
+        peer.on('connection', function(connection) {
+            conn = connection;
+            setupPvPConnection();
+        });
+
+        peer.on('error', function(err) {
+            showStatus('Error: ' + err.type + '. Try again.');
+            enablePvPButtons();
+        });
+    }
+
+    function setupJoin() {
+        mode = 'pvp';
+        isHost = false;
+        var joinId = document.getElementById('join-id').value.trim();
+        if (!joinId) {
+            showStatus('Please enter a Room ID!');
+            return;
+        }
+
+        disablePvPButtons();
+        showStatus('Connecting to ' + joinId + '...');
+        peer = new Peer();
+
+        peer.on('open', function() {
+            conn = peer.connect(joinId, { reliable: true });
+            setupPvPConnection();
+        });
+
+        peer.on('error', function(err) {
+            showStatus('Error: ' + err.type + '. Check the Room ID.');
+            enablePvPButtons();
+        });
+    }
+
+    function setupPvPConnection() {
+        conn.on('open', function() {
+            gameOver = false;
+            maxHP = 200;
+            playerHP = maxHP;
+            enemyHP = maxHP;
+
+            document.getElementById('enemy-name').innerText = 'Opponent';
+            document.getElementById('enemy-sprite').innerText = '\uD83E\uDD8A';
+
+            // Hide timer for PvP, show race label
+            document.getElementById('timer-text-display').innerText = 'PvP RACE!';
+            document.getElementById('timer-bar-wrap').style.display = 'none';
+            document.getElementById('timer-container').style.display = 'block';
+
+            updateHP();
+            showScreen('battle-screen');
+            document.getElementById('question-area').innerText = 'Connected! Prepare for battle...';
+            disableButtons();
+
+            if (isHost) {
+                setTimeout(sendPvPQuestion, 2000);
+            }
+        });
+
+        conn.on('data', function(data) {
+            if (gameOver) return;
+
+            if (data.type === 'question') {
+                // Host sent difficulty info
+                if (data.diff) difficulty = data.diff;
+                turnActive = true;
+                renderQuestionUI(data.qData.q, data.qData.ans, data.options);
+            } else if (data.type === 'attack') {
+                if (!turnActive) return;
+                turnActive = false;
+                disableButtons();
+                animateSprite('enemy-sprite');
+                playerHP -= data.amount;
+                showDamage('player-sprite', data.amount);
+                shakeElement('player-sprite');
+                document.getElementById('question-area').innerText = 'Opponent answered first! You took ' + data.amount + ' damage!';
+                updateHP();
+                if (playerHP <= 0) {
+                    endGame(false);
+                }
+            } else if (data.type === 'gameOver') {
+                if (data.youLost) {
+                    endGame(true);
+                }
+            }
+        });
+
+        conn.on('close', function() {
+            if (!gameOver) {
+                document.getElementById('question-area').innerText = 'Opponent disconnected!';
+                disableButtons();
+            }
+        });
+    }
+
+    function sendPvPQuestion() {
+        if (gameOver || !conn || !conn.open) return;
+        var qData = generateQuestionData();
+        var options = shuffleOptions(qData);
+        conn.send({ type: 'question', qData: qData, options: options, diff: difficulty });
+        turnActive = true;
+        renderQuestionUI(qData.q, qData.ans, options);
+    }
+
+    // --- SHARED ANSWER HANDLER ---
+    function handleAnswerClick(selected, btnElement) {
+        if (!turnActive || gameOver) return;
+
+        if (selected === currentCorrectAnswer) {
+            // CORRECT
+            turnActive = false;
+            clearInterval(timerInterval);
+            disableButtons();
+            btnElement.classList.add('correct-flash');
+            animateSprite('player-sprite');
+
+            var damage = 25;
+            if (mode === 'solo') {
+                questionsAnswered++;
+                questionsCorrect++;
+                var multiplier = 1 + (timeLeft / timeLimit);
+                damage = Math.floor(20 * multiplier);
+                totalDamageDealt += damage;
+            } else {
+                // PvP: send attack
+                if (conn && conn.open) {
+                    conn.send({ type: 'attack', amount: damage });
+                }
+            }
+
+            enemyHP -= damage;
+            showDamage('enemy-sprite', damage);
+            shakeElement('enemy-sprite');
+            document.getElementById('question-area').innerText = 'Correct! Dealt ' + damage + ' damage!';
+
+            setTimeout(function() {
+                updateHP();
+
+                if (enemyHP <= 0) {
+                    if (mode === 'pvp' && conn && conn.open) {
+                        conn.send({ type: 'gameOver', youLost: true });
+                    }
+                    endGame(true);
+                } else if (playerHP <= 0) {
+                    endGame(false);
+                } else {
+                    if (mode === 'solo') {
+                        nextSoloTurn();
+                    } else if (isHost) {
+                        setTimeout(sendPvPQuestion, 1000);
+                    }
+                }
+            }, 1200);
+
+        } else {
+            // WRONG
+            btnElement.classList.add('wrong-flash');
+            btnElement.disabled = true;
+
+            if (mode === 'solo') {
+                turnActive = false;
+                clearInterval(timerInterval);
+                questionsAnswered++;
+                disableButtons();
+                flashCorrectAnswer();
+                animateSprite('enemy-sprite');
+                var dmg = 25;
+                playerHP -= dmg;
+                showDamage('player-sprite', dmg);
+                shakeElement('player-sprite');
+                document.getElementById('question-area').innerText = 'Wrong! Answer: ' + currentCorrectAnswer;
+
+                setTimeout(function() {
+                    updateHP();
+                    checkWinLoss();
+                }, 2000);
+            } else {
+                // PvP: just disable that button, keep trying
+                document.getElementById('question-area').innerText = 'Incorrect! Keep trying!';
+            }
+        }
+    }
+
+    // --- HP & WIN/LOSS ---
+    function updateHP() {
+        if (playerHP < 0) playerHP = 0;
+        if (enemyHP < 0) enemyHP = 0;
+
+        var playerMaxDisplay = mode === 'solo' ? 150 : maxHP;
+        var pPct = (playerHP / playerMaxDisplay) * 100;
+        var ePct = (enemyHP / maxHP) * 100;
+
+        document.getElementById('player-hp').style.width = pPct + '%';
+        document.getElementById('enemy-hp').style.width = ePct + '%';
+
+        document.getElementById('player-hp').style.backgroundColor = pPct > 50 ? '#2ecc71' : (pPct > 20 ? '#f1c40f' : '#e74c3c');
+        document.getElementById('enemy-hp').style.backgroundColor = ePct > 50 ? '#2ecc71' : (ePct > 20 ? '#f1c40f' : '#e74c3c');
+    }
+
+    function checkWinLoss() {
+        if (gameOver) return;
+        if (playerHP <= 0) {
+            endGame(false);
+        } else if (enemyHP <= 0) {
+            endGame(true);
+        } else if (mode === 'solo') {
+            nextSoloTurn();
+        }
+    }
+
+    function endGame(playerWon) {
+        gameOver = true;
+        clearInterval(timerInterval);
+        showScreen('game-over-screen');
+
+        var title = document.getElementById('game-over-title');
+        var msg = document.getElementById('game-over-msg');
+        var stats = document.getElementById('game-over-stats');
+
+        if (playerWon) {
+            title.innerText = '\u2728 VICTORY! \u2728';
+            title.style.color = '#2ecc71';
+            msg.innerText = mode === 'solo'
+                ? 'You successfully factorised your way to victory!'
+                : 'You outsmarted your opponent!';
+        } else {
+            title.innerText = 'DEFEAT...';
+            title.style.color = '#e74c3c';
+            msg.innerText = mode === 'solo'
+                ? 'Mathachu fainted! Keep practising!'
+                : 'Your opponent defeated you. Keep practising!';
+        }
+
+        if (mode === 'solo') {
+            var accuracy = questionsAnswered > 0 ? Math.round((questionsCorrect / questionsAnswered) * 100) : 0;
+            stats.innerHTML = 'Questions: ' + questionsAnswered +
+                ' &nbsp;|&nbsp; Correct: ' + questionsCorrect +
+                ' (' + accuracy + '%)' +
+                '<br>Total damage dealt: ' + totalDamageDealt;
+        } else {
+            stats.innerHTML = '';
+        }
+    }
+
+    // --- ANIMATIONS ---
+    function animateSprite(id) {
+        var el = document.getElementById(id);
+        if (id === 'player-sprite') {
+            el.style.transform = 'scaleX(-1) translateX(-20px)';
+        } else {
+            el.style.transform = 'translateX(-20px)';
+        }
+        setTimeout(function() {
+            if (id === 'player-sprite') {
+                el.style.transform = 'scaleX(-1)';
+            } else {
+                el.style.transform = 'none';
+            }
+        }, 150);
+    }
+
+    function shakeElement(id) {
+        var el = document.getElementById(id);
+        el.classList.add('shake');
+        setTimeout(function() { el.classList.remove('shake'); }, 500);
+    }
+
+    function showDamage(targetId, amount) {
+        var target = document.getElementById(targetId);
+        var battleArea = document.querySelector('.battle-area');
+        var dmgEl = document.createElement('div');
+        dmgEl.className = 'damage-text';
+        dmgEl.innerText = '-' + amount;
+
+        var rect = target.getBoundingClientRect();
+        var parentRect = battleArea.getBoundingClientRect();
+        var startTop = rect.top - parentRect.top + 10;
+        var startLeft = rect.left - parentRect.left + 10;
+
+        dmgEl.style.top = startTop + 'px';
+        dmgEl.style.left = startLeft + 'px';
+        battleArea.appendChild(dmgEl);
+
+        var start = Date.now();
+        var anim = setInterval(function() {
+            var passed = Date.now() - start;
+            if (passed > 1000) {
+                clearInterval(anim);
+                if (dmgEl.parentNode) dmgEl.remove();
+            } else {
+                dmgEl.style.opacity = String(1 - (passed / 1000));
+                dmgEl.style.top = (startTop - (passed / 15)) + 'px';
+            }
+        }, 20);
+    }
+</script>
+
+
+
+</body></html>

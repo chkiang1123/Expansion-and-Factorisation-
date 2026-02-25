@@ -5,533 +5,157 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Math Battle: Solo & PvP Edition</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-primary: #f8f8f8;
-            --bg-gradient-top: #74ebd5;
-            --bg-gradient-bottom: #ACB6E5;
-            --text-primary: #2c3e50;
-            --text-secondary: #333;
-            --border-color: #333;
-            --hud-bg: #fff;
-            --dialog-bg: #fff;
-            --dialog-border: #ccc;
-            --btn-bg: #fff;
-            --btn-hover: #eee;
-            --option-hover: #f0f0f0;
-            --hp-bar-bg: #ccc;
-            --body-bg: #2c3e50;
-            --shadow-color: rgba(0,0,0,0.2);
-            --damage-shadow: white;
-            --battle-sky-top: #a1c4fd;
-            --battle-sky-mid: #c2e9fb;
-            --battle-ground-top: #d4fc79;
-            --battle-ground-bottom: #96e6a1;
-            --input-bg: #fff;
-            --input-text: #333;
-            --status-color: #c0392b;
-            --wrong-bg: #ffcccc;
-            --disabled-bg: #f5f5f5;
-            --disabled-text: #999;
-            --dashed-border: #555;
-            --timer-bg: #fff;
-        }
-
-        html.dark {
-            --bg-primary: #1a1a2e;
-            --bg-gradient-top: #0f3443;
-            --bg-gradient-bottom: #34495e;
-            --text-primary: #ecf0f1;
-            --text-secondary: #ddd;
-            --border-color: #5a6a7a;
-            --hud-bg: #16213e;
-            --dialog-bg: #16213e;
-            --dialog-border: #2c3e50;
-            --btn-bg: #1a1a3e;
-            --btn-hover: #2a2a4e;
-            --option-hover: #2a2a4e;
-            --hp-bar-bg: #444;
-            --body-bg: #0a0a1a;
-            --shadow-color: rgba(0,0,0,0.5);
-            --damage-shadow: #333;
-            --battle-sky-top: #1a1a3e;
-            --battle-sky-mid: #16213e;
-            --battle-ground-top: #1a3a1a;
-            --battle-ground-bottom: #0d2e0d;
-            --input-bg: #16213e;
-            --input-text: #ecf0f1;
-            --status-color: #e67e22;
-            --wrong-bg: #4a1a1a;
-            --disabled-bg: #1a1a2e;
-            --disabled-text: #555;
-            --dashed-border: #7a8a9a;
-            --timer-bg: #16213e;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
         body {
-            font-family: 'Press Start 2P', monospace;
-            background-color: var(--body-bg);
-            color: var(--text-secondary);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            min-height: 100dvh;
-            margin: 0;
-            overflow: hidden;
+            font-family: 'Press Start 2P', monospace; background-color: #2c3e50;
+            color: #333; display: flex; justify-content: center; align-items: center;
+            height: 100vh; margin: 0;
         }
 
         #game-container {
-            width: 100vw;
-            height: 100vh;
-            height: 100dvh;
-            max-width: 800px;
-            max-height: 700px;
-            background-color: var(--bg-primary);
-            border: 4px solid var(--border-color);
-            border-radius: 10px;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            width: 800px; height: 600px; background-color: #f8f8f8;
+            border: 8px solid #333; border-radius: 10px; position: relative;
+            overflow: hidden; display: flex; flex-direction: column;
         }
 
         /* Screens */
         .screen {
-            display: none;
-            width: 100%;
-            height: 100%;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            background: linear-gradient(to bottom, var(--bg-gradient-top), var(--bg-gradient-bottom));
-            padding: 16px;
-            overflow-y: auto;
+            display: none; width: 100%; height: 100%; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+            background: linear-gradient(to bottom, #74ebd5, #ACB6E5);
         }
         #main-menu { display: flex; }
 
-        h1 {
-            font-size: clamp(14px, 3.5vw, 26px);
-            line-height: 1.6;
-            color: var(--text-primary);
-            text-shadow: 2px 2px var(--shadow-color);
-            margin-bottom: 16px;
-        }
-        h2 {
-            font-size: clamp(12px, 2.8vw, 18px);
-            color: var(--text-primary);
-            margin-bottom: 16px;
-            text-shadow: 1px 1px var(--shadow-color);
-        }
-
-        .subtitle {
-            font-size: clamp(9px, 1.8vw, 12px);
-            margin-bottom: 24px;
-            color: var(--text-primary);
-            opacity: 0.8;
-        }
-
+        h1 { font-size: 26px; line-height: 1.5; color: #2c3e50; text-shadow: 2px 2px #fff; margin-bottom: 20px;}
+        h2 { font-size: 18px; margin-bottom: 20px; color: #2c3e50; }
+        
         .btn {
-            font-family: 'Press Start 2P', monospace;
-            background-color: var(--btn-bg);
-            border: 4px solid var(--border-color);
-            color: var(--text-secondary);
-            padding: 12px 16px;
-            margin: 6px;
-            cursor: pointer;
-            font-size: clamp(9px, 2vw, 14px);
-            transition: transform 0.1s, background-color 0.2s;
-            border-radius: 6px;
-            max-width: 95%;
-            -webkit-tap-highlight-color: transparent;
-            line-height: 1.5;
+            font-family: 'Press Start 2P', monospace; background-color: #fff;
+            border: 4px solid #333; padding: 15px 20px; margin: 10px;
+            cursor: pointer; font-size: 14px; transition: transform 0.1s;
         }
-        .btn:hover:not(:disabled) { background-color: var(--btn-hover); transform: scale(1.05); }
-        .btn:active:not(:disabled) { transform: scale(0.97); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .btn-small {
-            font-size: clamp(8px, 1.6vw, 10px);
-            padding: 10px 14px;
-        }
-
-        .btn-back {
-            margin-top: 20px;
-            font-size: clamp(8px, 1.5vw, 10px);
-            opacity: 0.7;
-        }
+        .btn:hover { background-color: #eee; transform: scale(1.05); }
 
         .input-box {
-            font-family: 'Press Start 2P', monospace;
-            padding: 12px;
-            font-size: 16px;
-            border: 4px solid var(--border-color);
-            border-radius: 6px;
-            margin-bottom: 10px;
-            text-align: center;
-            width: min(280px, 90%);
-            background-color: var(--input-bg);
-            color: var(--input-text);
-            outline: none;
+            font-family: 'Press Start 2P', monospace; padding: 10px; font-size: 14px;
+            border: 4px solid #333; margin-bottom: 10px; text-align: center; width: 250px;
         }
-        .input-box:focus { border-color: #3498db; }
-
-        .pvp-section {
-            border: 2px dashed var(--dashed-border);
-            border-radius: 8px;
-            padding: 14px;
-            margin-bottom: 14px;
-            width: min(400px, 95%);
-        }
-        .pvp-section-label {
-            font-size: clamp(8px, 1.5vw, 11px);
-            margin-bottom: 10px;
-            color: var(--text-primary);
-            opacity: 0.8;
-        }
-
-        .pvp-host-btns {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 4px;
-        }
-
-        #connection-status {
-            margin-top: 12px;
-            font-size: clamp(8px, 1.5vw, 12px);
-            color: var(--status-color);
-            line-height: 1.8;
-            max-width: 90%;
-            word-break: break-all;
-        }
-
-        /* Room ID display */
-        .room-id-display {
-            background: var(--btn-bg);
-            border: 3px dashed var(--border-color);
-            border-radius: 8px;
-            padding: 10px 16px;
-            margin: 8px 0;
-            font-size: clamp(12px, 2.5vw, 18px);
-            color: var(--text-primary);
-            letter-spacing: 2px;
-            cursor: pointer;
-            transition: transform 0.1s;
-            position: relative;
-            display: inline-block;
-        }
-        .room-id-display:active { transform: scale(0.96); }
-        .room-id-tooltip {
-            position: absolute;
-            bottom: -24px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 7px;
-            color: #2ecc71;
-            opacity: 0;
-            transition: opacity 0.3s;
-            white-space: nowrap;
-        }
-        .room-id-tooltip.show { opacity: 1; }
 
         /* Battle Scene */
         #battle-screen {
-            background: linear-gradient(
-                to bottom,
-                var(--battle-sky-top) 0%,
-                var(--battle-sky-mid) 48%,
-                var(--battle-ground-top) 50%,
-                var(--battle-ground-bottom) 100%
-            );
-            display: none;
+            background: linear-gradient(to bottom, #a1c4fd 0%, #c2e9fb 50%, #d4fc79 50%, #96e6a1 100%);
             position: relative;
-            overflow: hidden;
-        }
-
-        .battle-area {
-            flex: 1;
-            position: relative;
-            min-height: 0;
         }
 
         .hud {
-            background: var(--hud-bg);
-            border: 3px solid var(--border-color);
-            border-radius: 8px;
-            padding: 7px 10px;
-            position: absolute;
-            width: clamp(125px, 33vw, 250px);
-            font-size: clamp(6px, 1.3vw, 11px);
-            color: var(--text-secondary);
-            z-index: 2;
+            background: #fff; border: 4px solid #333; border-radius: 10px;
+            padding: 10px; position: absolute; width: 250px; font-size: 12px;
         }
-        .hud-label {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 4px;
-        }
-        .hud-enemy { top: 10px; left: 10px; }
-        .hud-player { bottom: 10px; right: 10px; }
+        .hud-enemy { top: 20px; left: 20px; }
+        .hud-player { bottom: 220px; right: 20px; }
 
         .hp-bar-container {
-            width: 100%;
-            height: 11px;
-            background-color: var(--hp-bar-bg);
-            border: 2px solid var(--border-color);
-            border-radius: 5px;
-            overflow: hidden;
+            width: 100%; height: 15px; background-color: #ccc;
+            border: 2px solid #333; margin-top: 5px; border-radius: 5px; overflow: hidden;
         }
-        .hp-bar {
-            height: 100%;
-            background-color: #2ecc71;
-            width: 100%;
-            transition: width 0.4s ease, background-color 0.3s;
-            border-radius: 3px;
+        .hp-bar { height: 100%; background-color: #2ecc71; width: 100%; transition: width 0.3s; }
+
+        .sprite { font-size: 100px; position: absolute; transition: transform 0.2s; }
+        .sprite-enemy { top: 40px; right: 80px; }
+        .sprite-player { bottom: 220px; left: 80px; transform: scaleX(-1); }
+
+        #dialog-box {
+            position: absolute; bottom: 0; width: 100%; height: 200px;
+            background: #fff; border-top: 6px solid #333; box-sizing: border-box;
+            display: flex; flex-direction: column;
         }
 
-        .sprite {
-            font-size: clamp(46px, 11vw, 100px);
-            position: absolute;
-            transition: transform 0.2s;
-            z-index: 1;
-            filter: drop-shadow(0 4px 8px var(--shadow-color));
+        #question-area {
+            padding: 15px; font-size: 14px; height: 50px;
+            border-bottom: 2px solid #ccc; line-height: 1.5;
         }
-        .sprite-enemy { top: 14%; right: 10%; }
-        .sprite-player { bottom: 14%; left: 10%; transform: scaleX(-1); }
+
+        #options-area {
+            display: grid; grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr; flex-grow: 1;
+        }
+
+        .option-btn {
+            font-family: 'Press Start 2P', monospace; background: transparent;
+            border: none; border-right: 2px solid #ccc; border-bottom: 2px solid #ccc;
+            font-size: 12px; cursor: pointer; padding: 5px; line-height: 1.4;
+        }
+        .option-btn:hover:not(:disabled) { background-color: #f0f0f0; }
+        .option-btn:disabled { color: #888; cursor: not-allowed; }
 
         /* Timer */
         #timer-container {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: var(--timer-bg);
-            border: 3px solid var(--border-color);
-            border-radius: 8px;
-            padding: 6px 10px;
-            font-size: clamp(7px, 1.3vw, 12px);
-            text-align: center;
-            color: var(--text-secondary);
-            z-index: 3;
+            position: absolute; top: 20px; right: 20px; background: #fff;
+            border: 4px solid #333; padding: 10px; font-size: 14px; text-align: center;
         }
-        #timer-bar-wrap {
-            width: clamp(50px, 12vw, 100px);
-            height: 8px;
-            background: var(--hp-bar-bg);
-            border-radius: 4px;
-            margin-top: 4px;
-            overflow: hidden;
-        }
-        #timer-bar {
-            width: 100%;
-            height: 100%;
-            background: #e74c3c;
-            border-radius: 4px;
-            transition: width 0.1s linear;
-        }
-
-        /* Dialog & Controls */
-        #dialog-box {
-            width: 100%;
-            min-height: 175px;
-            background: var(--dialog-bg);
-            border-top: 4px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-        }
-        #question-area {
-            padding: 10px 12px;
-            font-size: clamp(8px, 1.7vw, 13px);
-            min-height: 46px;
-            border-bottom: 2px solid var(--dialog-border);
-            line-height: 1.6;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
-        #options-area {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
-            flex: 1;
-            min-height: 115px;
-        }
-        .option-btn {
-            font-family: 'Press Start 2P', monospace;
-            background: transparent;
-            border: none;
-            border-right: 2px solid var(--dialog-border);
-            border-bottom: 2px solid var(--dialog-border);
-            font-size: clamp(7px, 1.5vw, 12px);
-            cursor: pointer;
-            padding: 7px 4px;
-            color: var(--text-secondary);
-            transition: background-color 0.15s;
-            -webkit-tap-highlight-color: transparent;
-            line-height: 1.4;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            word-break: break-word;
-        }
-        .option-btn:hover:not(:disabled) { background-color: var(--option-hover); }
-        .option-btn:active:not(:disabled) { background-color: var(--option-hover); }
-        .option-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .option-btn:nth-child(2n) { border-right: none; }
-        .option-btn:nth-child(n+3) { border-bottom: none; }
-
-        .option-btn.correct-flash {
-            background-color: #2ecc71 !important;
-            color: #fff !important;
-            opacity: 1 !important;
-        }
-        .option-btn.wrong-flash {
-            background-color: var(--wrong-bg) !important;
-            opacity: 0.5 !important;
-        }
+        #timer-bar { width: 100px; height: 10px; background: #e74c3c; margin-top: 5px; }
 
         .damage-text {
-            position: absolute;
-            font-size: clamp(16px, 3vw, 24px);
-            font-weight: bold;
-            color: #e74c3c;
-            text-shadow: 2px 2px var(--damage-shadow);
-            opacity: 0;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        /* Animations */
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-6px); }
-            40% { transform: translateX(6px); }
-            60% { transform: translateX(-4px); }
-            80% { transform: translateX(4px); }
-        }
-        .shake { animation: shake 0.4s ease; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-        }
-        .screen.active-screen { animation: fadeIn 0.3s ease; }
-
-        /* Game over */
-        #game-over-screen h1 {
-            font-size: clamp(20px, 5vw, 36px);
-            margin-bottom: 16px;
-        }
-        #game-over-msg {
-            font-size: clamp(9px, 1.8vw, 12px);
-            line-height: 1.8;
-            margin-bottom: 24px;
-            color: var(--text-primary);
-            max-width: 90%;
-        }
-        #game-over-stats {
-            font-size: clamp(7px, 1.3vw, 10px);
-            color: var(--text-primary);
-            opacity: 0.7;
-            margin-bottom: 16px;
-            line-height: 2;
-        }
-
-        /* Main menu button stagger */
-        #main-menu .btn:nth-child(3) { animation: fadeIn 0.4s ease 0.1s both; }
-        #main-menu .btn:nth-child(4) { animation: fadeIn 0.4s ease 0.2s both; }
-
-        @media (max-width: 500px) {
-            #game-container { border: none; border-radius: 0; }
-            .hud { padding: 5px 7px; }
-            #dialog-box { min-height: 155px; }
-            #options-area { min-height: 100px; }
-            .pvp-section { padding: 10px; }
-        }
-        @media (max-height: 500px) {
-            .sprite { font-size: clamp(34px, 8vw, 56px); }
-            #dialog-box { min-height: 135px; }
+            position: absolute; font-size: 24px; font-weight: bold; color: red;
+            text-shadow: 2px 2px white; opacity: 0; pointer-events: none; z-index: 10;
         }
     </style>
 </head>
 <body>
 
 <div id="game-container">
-
-    <!-- MAIN MENU -->
+    
     <div id="main-menu" class="screen">
         <h1>S.2 Math Battle</h1>
-        <p class="subtitle">Identities & Factorisation</p>
-        <button class="btn" id="btn-solo-mode">Solo Play</button>
-        <button class="btn" id="btn-pvp-mode">Multiplayer (PvP)</button>
+        <p style="font-size: 12px; margin-bottom: 30px;">Identities & Factorisation</p>
+        <button class="btn" onclick="showScreen('solo-menu')">👤 Solo Play</button>
+        <button class="btn" onclick="showScreen('pvp-menu')">⚔️ Multiplayer (PvP)</button>
     </div>
 
-    <!-- SOLO MENU -->
     <div id="solo-menu" class="screen">
         <h2>Select Solo Difficulty</h2>
-        <button class="btn" id="btn-solo-easy">Easy (Common Factors)</button>
-        <button class="btn" id="btn-solo-med">Medium (Grouping / Diff Sq)</button>
-        <button class="btn" id="btn-solo-hard">Hard (Perfect Squares)</button>
-        <button class="btn btn-back" id="btn-solo-back">Back</button>
+        <button class="btn" onclick="startSolo('easy')">Easy (Common Factors)</button>
+        <button class="btn" onclick="startSolo('medium')">Medium (Grouping/Diff Sq)</button>
+        <button class="btn" onclick="startSolo('hard')">Hard (Perfect Squares)</button>
+        <button class="btn" style="margin-top: 30px; font-size: 10px;" onclick="showScreen('main-menu')">Back</button>
     </div>
 
-    <!-- PVP MENU -->
     <div id="pvp-menu" class="screen">
         <h2>Multiplayer PvP</h2>
-        <div class="pvp-section">
-            <p class="pvp-section-label">HOST A GAME (Choose Difficulty)</p>
-            <div class="pvp-host-btns">
-                <button class="btn btn-small" id="btn-host-easy">Easy</button>
-                <button class="btn btn-small" id="btn-host-med">Med</button>
-                <button class="btn btn-small" id="btn-host-hard">Hard</button>
-            </div>
+        <div style="border: 2px dashed #333; padding: 15px; margin-bottom: 15px; background: rgba(255,255,255,0.5);">
+            <p style="font-size: 12px; margin-bottom: 10px; font-weight:bold;">HOST A GAME</p>
+            <button class="btn" style="font-size: 10px;" onclick="setupHost('easy')">Easy</button>
+            <button class="btn" style="font-size: 10px;" onclick="setupHost('medium')">Med</button>
+            <button class="btn" style="font-size: 10px;" onclick="setupHost('hard')">Hard</button>
         </div>
-        <div class="pvp-section">
-            <p class="pvp-section-label">JOIN A GAME</p>
-            <input type="text" id="join-id" class="input-box" placeholder="Enter Room ID">
-            <br>
-            <button class="btn btn-small" id="btn-join">Join</button>
+        <div style="border: 2px dashed #333; padding: 15px; background: rgba(255,255,255,0.5);">
+            <p style="font-size: 12px; margin-bottom: 10px; font-weight:bold;">JOIN A GAME</p>
+            <input type="text" id="join-id" class="input-box" placeholder="Enter Room ID"><br>
+            <button class="btn" onclick="setupJoin()">Join</button>
         </div>
-        <p id="connection-status"></p>
-        <div id="room-id-container" style="display:none;">
-            <div class="room-id-display" id="room-id-box">
-                <span id="room-id-text"></span>
-                <span class="room-id-tooltip" id="copy-tooltip">Copied!</span>
-            </div>
-            <p style="font-size:7px; margin-top:5px; color:var(--text-primary); opacity:0.5;">Tap to copy</p>
-        </div>
-        <button class="btn btn-back" id="btn-pvp-back">Back</button>
+        <p id="connection-status" style="margin-top: 15px; font-size: 12px; color: #e74c3c; line-height: 1.5;"></p>
+        <button class="btn" style="margin-top: 10px; font-size: 10px;" onclick="showScreen('main-menu')">Back</button>
     </div>
 
-    <!-- BATTLE SCREEN -->
     <div id="battle-screen" class="screen">
-        <div class="battle-area">
-            <div id="timer-container">
-                <div id="timer-text-display">Time: <span id="time-text">15</span>s</div>
-                <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
-            </div>
-
-            <div class="hud hud-enemy">
-                <div class="hud-label" id="enemy-name">Wild Algebro</div>
-                <div class="hp-bar-container"><div id="enemy-hp" class="hp-bar"></div></div>
-            </div>
-            <div class="sprite sprite-enemy" id="enemy-sprite">&#x1F98A;</div>
-
-            <div class="hud hud-player">
-                <div class="hud-label">Mathachu (You)</div>
-                <div class="hp-bar-container"><div id="player-hp" class="hp-bar"></div></div>
-            </div>
-            <div class="sprite sprite-player" id="player-sprite">&#x1F42D;</div>
+        <div id="timer-container">
+            <div id="timer-text-display">Time: <span id="time-text">15</span>s</div>
+            <div id="timer-bar"></div>
         </div>
+
+        <div class="hud hud-enemy">
+            <div id="enemy-name">Wild Algebro</div>
+            <div class="hp-bar-container"><div id="enemy-hp" class="hp-bar"></div></div>
+        </div>
+        <div class="sprite sprite-enemy" id="enemy-sprite">🦊</div>
+
+        <div class="hud hud-player">
+            <div>Mathachu (You)</div>
+            <div class="hp-bar-container"><div id="player-hp" class="hp-bar"></div></div>
+        </div>
+        <div class="sprite sprite-player" id="player-sprite">🐭</div>
 
         <div id="dialog-box">
             <div id="question-area">Get ready...</div>
@@ -544,321 +168,135 @@
         </div>
     </div>
 
-    <!-- GAME OVER SCREEN -->
     <div id="game-over-screen" class="screen">
         <h1 id="game-over-title">Game Over!</h1>
-        <p id="game-over-msg"></p>
-        <div id="game-over-stats"></div>
-        <button class="btn" id="btn-return">Return to Menu</button>
+        <p id="game-over-msg" style="line-height: 1.5; margin-bottom: 20px;"></p>
+        <button class="btn" onclick="location.reload()">Return to Menu</button>
     </div>
 </div>
 
 <script>
-    // --- Dark Mode Detection ---
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.documentElement.classList.add('dark');
-    }
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(event) {
-        if (event.matches) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    });
-
     // --- GLOBAL GAME STATE ---
-    var mode = 'solo';
-    var difficulty = 'easy';
-    var maxHP = 200;
-    var playerHP = maxHP;
-    var enemyHP = maxHP;
-    var currentCorrectAnswer = '';
-    var turnActive = false;
-    var gameOver = false;
+    let mode = 'solo'; // 'solo' or 'pvp'
+    let difficulty = 'easy';
+    let maxHP = 200;
+    let playerHP = maxHP;
+    let enemyHP = maxHP;
+    let currentCorrectAnswer = "";
+    let turnActive = false;
 
-    // Solo tracking
-    var timeLimit = 15;
-    var timeLeft = timeLimit;
-    var timerInterval = null;
-    var questionsAnswered = 0;
-    var questionsCorrect = 0;
-    var totalDamageDealt = 0;
+    // Solo Variables
+    let timeLimit = 15; 
+    let timeLeft = timeLimit;
+    let timerInterval;
 
-    // PvP
-    var peer = null;
-    var conn = null;
-    var isHost = false;
+    // PvP Variables
+    let peer = null;
+    let conn = null;
+    let isHost = false;
 
-    var SQ = '\u00B2';
-
-    // Enemy sprites by difficulty
-    var enemySprites = {
-        easy: ['\uD83D\uDC22', '\uD83D\uDC1B', '\uD83D\uDC0C', '\uD83E\uDD8E'],
-        medium: ['\uD83D\uDC0D', '\uD83E\uDD87', '\uD83D\uDC3A', '\uD83E\uDD82'],
-        hard: ['\uD83D\uDC09', '\uD83D\uDC7E', '\uD83E\uDD96', '\uD83D\uDC80']
+    // --- PVP STUN SERVER CONFIG (Fixes GitHub Pages issues) ---
+    const peerConfig = {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
     };
 
     // --- UTILITY ---
     function showScreen(id) {
-        var screens = document.querySelectorAll('.screen');
-        for (var i = 0; i < screens.length; i++) {
-            screens[i].style.display = 'none';
-            screens[i].classList.remove('active-screen');
-        }
-        var target = document.getElementById(id);
-        target.style.display = 'flex';
-        target.classList.add('active-screen');
+        document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+        document.getElementById(id).style.display = 'flex';
     }
 
-    function rand(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
+    function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-    function flipSign(s) {
-        return s === '+' ? '-' : '+';
-    }
-
-    function disableButtons() {
-        for (var i = 0; i < 4; i++) {
-            document.getElementById('opt' + i).disabled = true;
-        }
-    }
-
-    function showStatus(msg) {
-        document.getElementById('connection-status').innerText = msg;
-    }
-
-    // --- BIND ALL BUTTONS ---
-    document.getElementById('btn-solo-mode').addEventListener('click', function() { showScreen('solo-menu'); });
-    document.getElementById('btn-pvp-mode').addEventListener('click', function() { showScreen('pvp-menu'); });
-    document.getElementById('btn-solo-back').addEventListener('click', function() { showScreen('main-menu'); });
-    document.getElementById('btn-pvp-back').addEventListener('click', function() { showScreen('main-menu'); });
-
-    document.getElementById('btn-solo-easy').addEventListener('click', function() { startSolo('easy'); });
-    document.getElementById('btn-solo-med').addEventListener('click', function() { startSolo('medium'); });
-    document.getElementById('btn-solo-hard').addEventListener('click', function() { startSolo('hard'); });
-
-    document.getElementById('btn-host-easy').addEventListener('click', function() { setupHost('easy'); });
-    document.getElementById('btn-host-med').addEventListener('click', function() { setupHost('medium'); });
-    document.getElementById('btn-host-hard').addEventListener('click', function() { setupHost('hard'); });
-    document.getElementById('btn-join').addEventListener('click', setupJoin);
-
-    document.getElementById('btn-return').addEventListener('click', function() { location.reload(); });
-
-    // Copy room ID on tap
-    document.getElementById('room-id-box').addEventListener('click', function() {
-        var roomText = document.getElementById('room-id-text').innerText;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(roomText).then(function() {
-                var tooltip = document.getElementById('copy-tooltip');
-                tooltip.classList.add('show');
-                setTimeout(function() { tooltip.classList.remove('show'); }, 1500);
-            });
-        }
-    });
-
-    // Enter key to join
-    document.getElementById('join-id').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') setupJoin();
-    });
-
-    // Option buttons via event delegation
-    document.getElementById('options-area').addEventListener('click', function(e) {
-        var btn = e.target.closest('.option-btn');
-        if (!btn || btn.disabled || gameOver) return;
-        handleAnswerClick(btn.getAttribute('data-answer'), btn);
-    });
-
-    // --- MATH GENERATION ENGINE ---
+    // --- MATH GENERATION ENGINE (S.2 Identities & Factorisation Only) ---
     function generateQuestionData() {
-        var type = Math.random() < 0.5 ? 'expand' : 'factorise';
-        var qText = '';
-        var correct = '';
-        var wrongs = [];
+        let type = Math.random() < 0.5 ? 'expand' : 'factorise';
+        let qText = "", correct = "", wrongs = [];
 
         if (difficulty === 'easy') {
-            // Common factors: a(bv + c) or abv + ac
-            var a = rand(2, 6);
-            var b = rand(2, 5);
-            var c = rand(2, 7);
-            var sign = Math.random() < 0.5 ? '+' : '-';
-            var v1 = Math.random() < 0.5 ? 'x' : 'y';
-
+            // Common factors: a(bx + c)
+            let a = rand(2, 6); let b = rand(2, 5); let c = rand(2, 7);
+            let sign = Math.random() < 0.5 ? '+' : '-';
+            let v1 = Math.random() < 0.5 ? 'x' : 'y';
             if (type === 'expand') {
-                qText = 'Expand: ' + a + '(' + b + v1 + ' ' + sign + ' ' + c + ')';
-                correct = (a * b) + v1 + ' ' + sign + ' ' + (a * c);
-                wrongs = [
-                    (a * b) + v1 + ' ' + sign + ' ' + c,
-                    b + v1 + ' ' + sign + ' ' + (a * c),
-                    (a * b) + v1 + ' ' + flipSign(sign) + ' ' + (a * c)
-                ];
+                qText = `Expand: ${a}(${b}${v1} ${sign} ${c})`;
+                correct = `${a*b}${v1} ${sign} ${a*c}`;
+                wrongs = [`${a*b}${v1} ${sign} ${c}`, `${b}${v1} ${sign} ${a*c}`, `${a*b}${v1} ${sign === '+' ? '-' : '+'} ${a*c}`];
             } else {
-                qText = 'Factorise: ' + (a * b) + v1 + ' ' + sign + ' ' + (a * c);
-                correct = a + '(' + b + v1 + ' ' + sign + ' ' + c + ')';
-                wrongs = [
-                    a + '(' + b + v1 + ' ' + flipSign(sign) + ' ' + c + ')',
-                    (a * b) + '(' + v1 + ' ' + sign + ' ' + c + ')',
-                    a + '(' + b + v1 + ' ' + sign + ' ' + (a * c) + ')'
-                ];
+                qText = `Factorise: ${a*b}${v1} ${sign} ${a*c}`;
+                correct = `${a}(${b}${v1} ${sign} ${c})`;
+                wrongs = [`${a}(${b}${v1} ${sign === '+' ? '-' : '+'} ${c})`, `${a*b}(${v1} ${sign} ${c})`, `${a}(${b}${v1} ${sign} ${a*c})`];
             }
-
         } else if (difficulty === 'medium') {
-            // Grouping or Difference of Squares
-            var isGrouping = Math.random() < 0.5;
-
-            if (isGrouping) {
-                // Grouping: x(y + a) + c(y + a) = (x + c)(y + a)
-                var ga = rand(2, 6);
-                var gc = rand(2, 5);
-
+            // Grouping or Diff of Squares
+            if (Math.random() < 0.5) {
+                // Grouping
+                let a = rand(2, 5);
                 if (type === 'expand') {
-                    // Expand: (x + c)(y + a) = xy + ax + cy + ca
-                    qText = 'Expand: (x + ' + gc + ')(y + ' + ga + ')';
-                    correct = 'xy + ' + ga + 'x + ' + gc + 'y + ' + (gc * ga);
-                    wrongs = [
-                        'xy + ' + gc + 'x + ' + ga + 'y + ' + (gc * ga),
-                        'xy + ' + (gc + ga) + 'xy + ' + (gc * ga),
-                        'xy + ' + ga + 'x + ' + gc + 'y - ' + (gc * ga)
-                    ];
+                    qText = `Factorise: a(x + y) + b(x + y)`; // Custom static structure for S.2 Grouping
+                    correct = `(a + b)(x + y)`;
+                    wrongs = [`(ab)(x + y)`, `(a + b)(xy)`, `a + b + x + y`];
                 } else {
-                    qText = 'Factorise: x(y + ' + ga + ') + ' + gc + '(y + ' + ga + ')';
-                    correct = '(x + ' + gc + ')(y + ' + ga + ')';
-                    wrongs = [
-                        '(x - ' + gc + ')(y + ' + ga + ')',
-                        gc + 'x(y + ' + ga + ')',
-                        '(x + ' + gc + ')(y - ' + ga + ')'
-                    ];
+                    qText = `Factorise: x(y + ${a}) + 2(y + ${a})`;
+                    correct = `(x + 2)(y + ${a})`;
+                    wrongs = [`(x - 2)(y + ${a})`, `2x(y + ${a})`, `(x + 2)(y - ${a})`];
                 }
             } else {
-                // Difference of Squares: (ax - b)(ax + b) = a²x² - b²
-                var da = rand(1, 4);
-                var db = rand(2, 6);
-                var daTerm = da === 1 ? 'x' : da + 'x';
-                var da2Str = da === 1 ? '' : String(da * da);
-
+                // Diff of squares: (ax-b)(ax+b)
+                let a = rand(1, 4); let b = rand(2, 6);
+                let aTerm = a === 1 ? 'x' : `${a}x`; let a2 = a === 1 ? '' : `${a*a}`;
                 if (type === 'expand') {
-                    qText = 'Expand: (' + daTerm + ' - ' + db + ')(' + daTerm + ' + ' + db + ')';
-                    correct = da2Str + 'x' + SQ + ' - ' + (db * db);
-                    wrongs = [
-                        da2Str + 'x' + SQ + ' + ' + (db * db),
-                        da2Str + 'x' + SQ + ' - ' + db,
-                        da2Str + 'x' + SQ + ' - ' + (2 * db) + 'x'
-                    ];
+                    qText = `Expand: (${aTerm} - ${b})(${aTerm} + ${b})`;
+                    correct = `${a2}x² - ${b*b}`;
+                    wrongs = [`${a2}x² + ${b*b}`, `${a2}x² - ${b}`, `${a*2}x² - ${b*b}`];
                 } else {
-                    qText = 'Factorise: ' + da2Str + 'x' + SQ + ' - ' + (db * db);
-                    correct = '(' + daTerm + ' - ' + db + ')(' + daTerm + ' + ' + db + ')';
-                    wrongs = [
-                        '(' + daTerm + ' - ' + db + ')' + SQ,
-                        '(' + daTerm + ' + ' + db + ')' + SQ,
-                        '(' + daTerm + ' - ' + (db * db) + ')(' + daTerm + ' + 1)'
-                    ];
+                    qText = `Factorise: ${a2}x² - ${b*b}`;
+                    correct = `(${aTerm} - ${b})(${aTerm} + ${b})`;
+                    wrongs = [`(${aTerm} - ${b})²`, `(${aTerm} + ${b})²`, `(${aTerm} - ${b*b})(${aTerm} + 1)`];
                 }
             }
-
         } else {
             // Hard: Perfect Squares (ax +/- b)^2
-            var pa = rand(1, 3);
-            var pb = rand(1, 5);
-            var psign = Math.random() < 0.5 ? '+' : '-';
-            var paTerm = pa === 1 ? 'x' : pa + 'x';
-            var pa2Str = pa === 1 ? '' : String(pa * pa);
-            var twoAB = 2 * pa * pb;
-
+            let a = rand(1, 3); let b = rand(1, 5); let sign = Math.random() < 0.5 ? '+' : '-';
+            let aTerm = a === 1 ? 'x' : `${a}x`; let a2 = a === 1 ? '' : `${a*a}`;
             if (type === 'expand') {
-                qText = 'Expand: (' + paTerm + ' ' + psign + ' ' + pb + ')' + SQ;
-                correct = pa2Str + 'x' + SQ + ' ' + psign + ' ' + twoAB + 'x + ' + (pb * pb);
-                wrongs = [
-                    pa2Str + 'x' + SQ + ' + ' + (pb * pb),
-                    pa2Str + 'x' + SQ + ' ' + flipSign(psign) + ' ' + twoAB + 'x + ' + (pb * pb),
-                    pa2Str + 'x' + SQ + ' ' + psign + ' ' + (pa * pb) + 'x + ' + (pb * pb)
-                ];
+                qText = `Expand: (${aTerm} ${sign} ${b})²`;
+                correct = `${a2}x² ${sign} ${2*a*b}x + ${b*b}`;
+                wrongs = [`${a2}x² + ${b*b}`, `${a2}x² ${sign === '+' ? '-' : '+'} ${2*a*b}x + ${b*b}`, `${a2}x² ${sign} ${a*b}x + ${b*b}`];
             } else {
-                qText = 'Factorise: ' + pa2Str + 'x' + SQ + ' ' + psign + ' ' + twoAB + 'x + ' + (pb * pb);
-                correct = '(' + paTerm + ' ' + psign + ' ' + pb + ')' + SQ;
-                wrongs = [
-                    '(' + paTerm + ' ' + flipSign(psign) + ' ' + pb + ')' + SQ,
-                    '(' + paTerm + ' ' + psign + ' ' + (pb * pb) + ')' + SQ,
-                    '(' + paTerm + ' - ' + pb + ')(' + paTerm + ' + ' + pb + ')'
-                ];
+                qText = `Factorise: ${a2}x² ${sign} ${2*a*b}x + ${b*b}`;
+                correct = `(${aTerm} ${sign} ${b})²`;
+                wrongs = [`(${aTerm} ${sign === '+' ? '-' : '+'} ${b})²`, `(${aTerm} ${sign} ${b*b})²`, `(${aTerm} - ${b})(${aTerm} + ${b})`];
             }
         }
-
         return { q: qText, ans: correct, wrong: wrongs };
     }
 
-    // --- SHARED BATTLE RENDERING ---
-    function renderQuestionUI(qText, ans, options) {
-        document.getElementById('question-area').innerText = qText;
-        currentCorrectAnswer = ans;
-
-        for (var i = 0; i < 4; i++) {
-            var btn = document.getElementById('opt' + i);
-            btn.innerText = options[i];
-            btn.disabled = false;
-            btn.className = 'option-btn';
-            btn.setAttribute('data-answer', options[i]);
-        }
-    }
-
-    function shuffleOptions(qData) {
-        var options = [qData.ans, qData.wrong[0], qData.wrong[1], qData.wrong[2]];
-        for (var i = options.length - 1; i > 0; i--) {
-            var j = Math.floor(Math.random() * (i + 1));
-            var temp = options[i];
-            options[i] = options[j];
-            options[j] = temp;
-        }
-        return options;
-    }
-
-    function flashCorrectAnswer() {
-        for (var i = 0; i < 4; i++) {
-            var btn = document.getElementById('opt' + i);
-            if (btn.getAttribute('data-answer') === currentCorrectAnswer) {
-                btn.classList.add('correct-flash');
-            }
-        }
-    }
-
-    // --- SOLO MODE ---
+    // --- SOLO MODE LOGIC ---
     function startSolo(level) {
-        mode = 'solo';
-        difficulty = level;
-        gameOver = false;
-        questionsAnswered = 0;
-        questionsCorrect = 0;
-        totalDamageDealt = 0;
-
-        if (level === 'easy') { maxHP = 150; timeLimit = 18; }
-        else if (level === 'medium') { maxHP = 250; timeLimit = 15; }
-        else { maxHP = 350; timeLimit = 12; }
-
-        playerHP = 150;
-        enemyHP = maxHP;
-
-        var levelLabels = { easy: 'E', medium: 'M', hard: 'H' };
-        document.getElementById('enemy-name').innerText = 'Wild Algebro (Lv.' + levelLabels[level] + ')';
-
-        // Pick random enemy sprite
-        var sprites = enemySprites[level] || enemySprites.easy;
-        document.getElementById('enemy-sprite').innerText = sprites[rand(0, sprites.length - 1)];
-
-        // Show timer for solo
+        mode = 'solo'; difficulty = level;
+        maxHP = level === 'easy' ? 150 : (level === 'medium' ? 250 : 350);
+        playerHP = maxHP; enemyHP = maxHP;
+        
+        document.getElementById('enemy-name').innerText = `Wild Algebro (Lv.${level.charAt(0).toUpperCase()})`;
         document.getElementById('timer-container').style.display = 'block';
-        document.getElementById('timer-text-display').innerHTML = 'Time: <span id="time-text">15</span>s';
-        document.getElementById('timer-bar-wrap').style.display = 'block';
-
         updateHP();
         showScreen('battle-screen');
         nextSoloTurn();
     }
 
     function nextSoloTurn() {
-        if (gameOver) return;
-        turnActive = true;
-        var qData = generateQuestionData();
-        var options = shuffleOptions(qData);
+        let qData = generateQuestionData();
+        let options = [qData.ans, ...qData.wrong];
+        options.sort(() => Math.random() - 0.5); // Shuffle
         renderQuestionUI(qData.q, qData.ans, options);
+        
+        turnActive = true;
         resetTimer();
     }
 
@@ -866,483 +304,227 @@
         clearInterval(timerInterval);
         timeLeft = timeLimit;
         updateTimerUI();
-        timerInterval = setInterval(function() {
+        timerInterval = setInterval(() => {
             timeLeft -= 0.1;
             updateTimerUI();
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                handleSoloTimeout();
-            }
+            if (timeLeft <= 0) { clearInterval(timerInterval); handleSoloTimeout(); }
         }, 100);
     }
 
     function updateTimerUI() {
-        var timeTextEl = document.getElementById('time-text');
-        if (timeTextEl) timeTextEl.innerText = Math.ceil(timeLeft);
-        var pct = Math.max(0, (timeLeft / timeLimit) * 100);
-        document.getElementById('timer-bar').style.width = pct + '%';
-
-        if (timeLeft <= 3) {
-            document.getElementById('timer-bar').style.backgroundColor = '#c0392b';
-        } else if (timeLeft <= 7) {
-            document.getElementById('timer-bar').style.backgroundColor = '#e67e22';
-        } else {
-            document.getElementById('timer-bar').style.backgroundColor = '#e74c3c';
-        }
+        document.getElementById('time-text').innerText = Math.ceil(timeLeft);
+        let pct = (timeLeft / timeLimit) * 100;
+        document.getElementById('timer-bar').style.width = Math.max(0, pct) + '%';
     }
 
     function handleSoloTimeout() {
-        if (!turnActive || gameOver) return;
+        if(!turnActive) return;
         turnActive = false;
-        questionsAnswered++;
-        disableButtons();
-        flashCorrectAnswer();
-        animateSprite('enemy-sprite');
-        var dmg = 25;
-        playerHP -= dmg;
-        showDamage('player-sprite', dmg);
-        shakeElement('player-sprite');
-        document.getElementById('question-area').innerText = "Time's up! Algebro dealt " + dmg + " damage!";
-        setTimeout(function() {
-            updateHP();
-            checkWinLoss();
-        }, 1500);
+        disableButtons(); animateSprite('enemy-sprite');
+        let dmg = 25; playerHP -= dmg; showDamage('player-sprite', dmg);
+        document.getElementById('question-area').innerText = `Time's up! Algebro dealt ${dmg} damage!`;
+        setTimeout(() => { updateHP(); checkWinLoss(); }, 1500);
     }
 
-    // --- PVP MODE ---
-    function disablePvPButtons() {
-        document.getElementById('btn-host-easy').disabled = true;
-        document.getElementById('btn-host-med').disabled = true;
-        document.getElementById('btn-host-hard').disabled = true;
-        document.getElementById('btn-join').disabled = true;
-    }
-
-    function enablePvPButtons() {
-        document.getElementById('btn-host-easy').disabled = false;
-        document.getElementById('btn-host-med').disabled = false;
-        document.getElementById('btn-host-hard').disabled = false;
-        document.getElementById('btn-join').disabled = false;
-    }
-
-    // PeerJS config with proper STUN/TURN for NAT traversal
-    var peerConfig = {
-        secure: true,
-        host: '0.peerjs.com',
-        port: 443,
-        path: '/',
-        debug: 1,
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun.cloudflare.com:3478' },
-                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-                { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-            ]
-        }
-    };
-
-    var connectionTimeout = null;
-
-    function clearConnectionTimeout() {
-        if (connectionTimeout) {
-            clearTimeout(connectionTimeout);
-            connectionTimeout = null;
-        }
-    }
+    // --- PVP MODE LOGIC ---
+    function updatePvPStatus(msg) { document.getElementById('connection-status').innerText = msg; }
 
     function setupHost(level) {
-        mode = 'pvp';
-        difficulty = level;
-        isHost = true;
-        disablePvPButtons();
-        showStatus('Creating Room...');
-
-        var roomId = 'math-' + Math.random().toString(36).substring(2, 6);
-
-        // Clean up any existing peer
-        if (peer) {
-            try { peer.destroy(); } catch(e) { /* ignore */ }
-        }
-
+        mode = 'pvp'; difficulty = level; isHost = true;
+        updatePvPStatus("Creating Room... Please wait.");
+        let roomId = "math-" + Math.random().toString(36).substring(2, 6);
+        
+        // Using config to bypass strict firewalls
         peer = new Peer(roomId, peerConfig);
-
-        // Timeout if server doesn't respond in 12 seconds
-        clearConnectionTimeout();
-        connectionTimeout = setTimeout(function() {
-            if (!peer || !peer.open) {
-                showStatus('Server not responding. Retrying...');
-                try { peer.destroy(); } catch(e) { /* ignore */ }
-                // Retry once with a different ID
-                var retryId = 'math-' + Math.random().toString(36).substring(2, 6);
-                peer = new Peer(retryId, peerConfig);
-                peer.on('open', function(id) {
-                    clearConnectionTimeout();
-                    showStatus('Share this Room ID:');
-                    document.getElementById('room-id-container').style.display = 'block';
-                    document.getElementById('room-id-text').innerText = id;
-                });
-                peer.on('connection', function(connection) {
-                    clearConnectionTimeout();
-                    conn = connection;
-                    setupPvPConnection();
-                });
-                peer.on('error', function(err) {
-                    clearConnectionTimeout();
-                    showStatus('Could not connect to server. Please try again later.');
-                    enablePvPButtons();
-                });
-                // Final timeout
-                connectionTimeout = setTimeout(function() {
-                    if (!peer || !peer.open) {
-                        showStatus('Server unreachable. Try again later.');
-                        enablePvPButtons();
-                        try { peer.destroy(); } catch(e) { /* ignore */ }
-                    }
-                }, 12000);
-            }
-        }, 12000);
-
-        peer.on('open', function(id) {
-            clearConnectionTimeout();
-            showStatus('Share this Room ID:');
-            document.getElementById('room-id-container').style.display = 'block';
-            document.getElementById('room-id-text').innerText = id;
+        
+        peer.on('open', (id) => {
+            updatePvPStatus(`Room Created!\nYour Room ID: ${id}\nTell your opponent to enter this!`);
         });
 
-        peer.on('connection', function(connection) {
-            clearConnectionTimeout();
-            conn = connection;
-            setupPvPConnection();
+        peer.on('connection', (connection) => { 
+            conn = connection; 
+            startPvP(); 
         });
 
-        peer.on('error', function(err) {
-            clearConnectionTimeout();
-            showStatus('Error: ' + err.type + '. Try again.');
-            enablePvPButtons();
-        });
-
-        peer.on('disconnected', function() {
-            // Try to reconnect to signaling server
-            if (!gameOver && peer && !peer.destroyed) {
-                showStatus('Reconnecting to server...');
-                try { peer.reconnect(); } catch(e) { /* ignore */ }
-            }
+        // Error catcher
+        peer.on('error', (err) => {
+            console.error(err);
+            updatePvPStatus(`Error: ${err.type}. Check school network rules.`);
         });
     }
 
     function setupJoin() {
-        mode = 'pvp';
-        isHost = false;
-        var joinId = document.getElementById('join-id').value.trim();
-        if (!joinId) {
-            showStatus('Please enter a Room ID!');
-            return;
-        }
-
-        // Clean up any existing peer
-        if (peer) {
-            try { peer.destroy(); } catch(e) { /* ignore */ }
-        }
-
-        disablePvPButtons();
-        showStatus('Connecting to ' + joinId + '...');
+        mode = 'pvp'; isHost = false;
+        let joinId = document.getElementById('join-id').value.trim().toLowerCase();
+        if(!joinId) { updatePvPStatus("Please enter a Room ID!"); return; }
+        
+        updatePvPStatus("Connecting to " + joinId + "...");
+        
         peer = new Peer(undefined, peerConfig);
-
-        // Timeout if connection takes too long
-        clearConnectionTimeout();
-        connectionTimeout = setTimeout(function() {
-            showStatus('Connection timed out. Check Room ID and try again.');
-            enablePvPButtons();
-            try { peer.destroy(); } catch(e) { /* ignore */ }
-        }, 15000);
-
-        peer.on('open', function() {
-            conn = peer.connect(joinId, { reliable: true });
-            setupPvPConnection();
+        
+        peer.on('open', () => { 
+            conn = peer.connect(joinId);
+            conn.on('error', (err) => updatePvPStatus(`Connection failed: ${err.message}`));
+            startPvP(); 
         });
 
-        peer.on('error', function(err) {
-            clearConnectionTimeout();
-            var msg = 'Error: ' + err.type + '.';
-            if (err.type === 'peer-unavailable') {
-                msg = 'Room not found! Check the Room ID.';
-            } else if (err.type === 'network') {
-                msg = 'Network error. Check your connection.';
-            } else if (err.type === 'server-error') {
-                msg = 'Server error. Try again later.';
-            }
-            showStatus(msg);
-            enablePvPButtons();
-        });
-
-        peer.on('disconnected', function() {
-            if (!gameOver && peer && !peer.destroyed) {
-                try { peer.reconnect(); } catch(e) { /* ignore */ }
-            }
+        peer.on('error', (err) => {
+            console.error(err);
+            updatePvPStatus(`Error: ${err.type}. Check Room ID or network.`);
         });
     }
 
-    function setupPvPConnection() {
-        conn.on('open', function() {
-            clearConnectionTimeout();
-            gameOver = false;
-            maxHP = 200;
-            playerHP = maxHP;
-            enemyHP = maxHP;
-
-            document.getElementById('enemy-name').innerText = 'Opponent';
-            document.getElementById('enemy-sprite').innerText = '\uD83E\uDD8A';
-
-            // Hide timer for PvP, show race label
-            document.getElementById('timer-text-display').innerText = 'PvP RACE!';
-            document.getElementById('timer-bar-wrap').style.display = 'none';
+    function startPvP() {
+        conn.on('open', () => {
+            maxHP = 200; playerHP = maxHP; enemyHP = maxHP;
+            document.getElementById('enemy-name').innerText = "Opponent";
             document.getElementById('timer-container').style.display = 'block';
-
-            updateHP();
-            showScreen('battle-screen');
-            document.getElementById('question-area').innerText = 'Connected! Prepare for battle...';
-            disableButtons();
-
-            if (isHost) {
-                setTimeout(sendPvPQuestion, 2000);
-            }
+            document.getElementById('timer-text-display').innerText = "PvP RACE!";
+            document.getElementById('timer-bar').style.display = 'none';
+            
+            updateHP(); showScreen('battle-screen');
+            document.getElementById('question-area').innerText = "Connected! Prepare for battle...";
+            
+            if(isHost) setTimeout(sendPvPQuestion, 2000); // Host acts as game master
         });
 
-        conn.on('data', function(data) {
-            if (gameOver) return;
-
-            if (data.type === 'question') {
-                // Host sent difficulty info
-                if (data.diff) difficulty = data.diff;
+        conn.on('data', (data) => {
+            if(data.type === 'question') {
                 turnActive = true;
                 renderQuestionUI(data.qData.q, data.qData.ans, data.options);
-            } else if (data.type === 'attack') {
-                if (!turnActive) return;
+            } 
+            else if(data.type === 'attack') {
+                if(!turnActive) return; // Ignore if round is over
                 turnActive = false;
-                disableButtons();
-                animateSprite('enemy-sprite');
-                playerHP -= data.amount;
-                showDamage('player-sprite', data.amount);
-                shakeElement('player-sprite');
-                document.getElementById('question-area').innerText = 'Opponent answered first! You took ' + data.amount + ' damage!';
-                updateHP();
-                if (playerHP <= 0) {
-                    endGame(false);
-                }
-            } else if (data.type === 'gameOver') {
-                if (data.youLost) {
-                    endGame(true);
-                }
-            }
-        });
-
-        conn.on('close', function() {
-            if (!gameOver) {
-                document.getElementById('question-area').innerText = 'Opponent disconnected!';
-                disableButtons();
+                disableButtons(); animateSprite('enemy-sprite');
+                playerHP -= data.amount; showDamage('player-sprite', data.amount);
+                document.getElementById('question-area').innerText = "Opponent answered first! You took damage!";
+                updateHP(); checkWinLoss();
             }
         });
     }
 
     function sendPvPQuestion() {
-        if (gameOver || !conn || !conn.open) return;
-        var qData = generateQuestionData();
-        var options = shuffleOptions(qData);
-        conn.send({ type: 'question', qData: qData, options: options, diff: difficulty });
+        let qData = generateQuestionData();
+        let options = [qData.ans, ...qData.wrong];
+        options.sort(() => Math.random() - 0.5);
+        
+        conn.send({ type: 'question', qData: qData, options: options });
         turnActive = true;
         renderQuestionUI(qData.q, qData.ans, options);
     }
 
-    // --- SHARED ANSWER HANDLER ---
+    // --- SHARED BATTLE LOGIC ---
+    function renderQuestionUI(qText, ans, options) {
+        document.getElementById('question-area').innerText = qText;
+        currentCorrectAnswer = ans;
+        for (let i = 0; i < 4; i++) {
+            let btn = document.getElementById('opt' + i);
+            btn.innerText = options[i]; btn.disabled = false;
+            btn.style.backgroundColor = 'transparent';
+            btn.onclick = () => handleAnswerClick(options[i], btn);
+        }
+    }
+
+    function disableButtons() {
+        for (let i = 0; i < 4; i++) document.getElementById('opt' + i).disabled = true;
+    }
+
     function handleAnswerClick(selected, btnElement) {
-        if (!turnActive || gameOver) return;
+        if(!turnActive) return;
 
         if (selected === currentCorrectAnswer) {
-            // CORRECT
-            turnActive = false;
-            clearInterval(timerInterval);
-            disableButtons();
-            btnElement.classList.add('correct-flash');
-            animateSprite('player-sprite');
-
-            var damage = 25;
-            if (mode === 'solo') {
-                questionsAnswered++;
-                questionsCorrect++;
-                var multiplier = 1 + (timeLeft / timeLimit);
+            // Correct logic
+            turnActive = false; clearInterval(timerInterval);
+            disableButtons(); animateSprite('player-sprite');
+            
+            let damage = 25;
+            if(mode === 'solo') {
+                let multiplier = 1 + (timeLeft / timeLimit); 
                 damage = Math.floor(20 * multiplier);
-                totalDamageDealt += damage;
             } else {
-                // PvP: send attack
-                if (conn && conn.open) {
-                    conn.send({ type: 'attack', amount: damage });
-                }
+                conn.send({ type: 'attack', amount: damage }); // Send attack packet to opponent
             }
 
-            enemyHP -= damage;
-            showDamage('enemy-sprite', damage);
-            shakeElement('enemy-sprite');
-            document.getElementById('question-area').innerText = 'Correct! Dealt ' + damage + ' damage!';
-
-            setTimeout(function() {
-                updateHP();
-
-                if (enemyHP <= 0) {
-                    if (mode === 'pvp' && conn && conn.open) {
-                        conn.send({ type: 'gameOver', youLost: true });
-                    }
-                    endGame(true);
-                } else if (playerHP <= 0) {
-                    endGame(false);
-                } else {
-                    if (mode === 'solo') {
-                        nextSoloTurn();
-                    } else if (isHost) {
-                        setTimeout(sendPvPQuestion, 1000);
-                    }
-                }
-            }, 1200);
+            enemyHP -= damage; showDamage('enemy-sprite', damage);
+            document.getElementById('question-area').innerText = `Correct! Dealt ${damage} damage!`;
+            
+            setTimeout(() => {
+                updateHP(); checkWinLoss();
+                if(mode === 'pvp' && isHost) setTimeout(sendPvPQuestion, 1000);
+            }, 1000);
 
         } else {
-            // WRONG
-            btnElement.classList.add('wrong-flash');
-            btnElement.disabled = true;
+            // Wrong logic
+            btnElement.style.backgroundColor = '#ffcccc'; btnElement.disabled = true;
 
-            if (mode === 'solo') {
-                turnActive = false;
-                clearInterval(timerInterval);
-                questionsAnswered++;
-                disableButtons();
-                flashCorrectAnswer();
+            if(mode === 'solo') {
+                turnActive = false; clearInterval(timerInterval); disableButtons();
                 animateSprite('enemy-sprite');
-                var dmg = 25;
-                playerHP -= dmg;
-                showDamage('player-sprite', dmg);
-                shakeElement('player-sprite');
-                document.getElementById('question-area').innerText = 'Wrong! Answer: ' + currentCorrectAnswer;
-
-                setTimeout(function() {
-                    updateHP();
-                    checkWinLoss();
-                }, 2000);
+                let dmg = 25; playerHP -= dmg; showDamage('player-sprite', dmg);
+                document.getElementById('question-area').innerText = `Wrong! Correct was:\n${currentCorrectAnswer}`;
+                setTimeout(() => { updateHP(); checkWinLoss(); }, 2000);
             } else {
-                // PvP: just disable that button, keep trying
-                document.getElementById('question-area').innerText = 'Incorrect! Keep trying!';
+                // In PvP, they just get blocked from that option and must try another
+                document.getElementById('question-area').innerText = "Incorrect! Keep trying!";
             }
         }
     }
 
-    // --- HP & WIN/LOSS ---
     function updateHP() {
-        if (playerHP < 0) playerHP = 0;
-        if (enemyHP < 0) enemyHP = 0;
-
-        var playerMaxDisplay = mode === 'solo' ? 150 : maxHP;
-        var pPct = (playerHP / playerMaxDisplay) * 100;
-        var ePct = (enemyHP / maxHP) * 100;
-
+        if(playerHP < 0) playerHP = 0; if(enemyHP < 0) enemyHP = 0;
+        let pPct = (playerHP / maxHP) * 100; let ePct = (enemyHP / maxHP) * 100;
         document.getElementById('player-hp').style.width = pPct + '%';
         document.getElementById('enemy-hp').style.width = ePct + '%';
-
-        document.getElementById('player-hp').style.backgroundColor = pPct > 50 ? '#2ecc71' : (pPct > 20 ? '#f1c40f' : '#e74c3c');
-        document.getElementById('enemy-hp').style.backgroundColor = ePct > 50 ? '#2ecc71' : (ePct > 20 ? '#f1c40f' : '#e74c3c');
+        
+        let getCol = (pct) => pct > 50 ? '#2ecc71' : (pct > 20 ? '#f1c40f' : '#e74c3c');
+        document.getElementById('player-hp').style.backgroundColor = getCol(pPct);
+        document.getElementById('enemy-hp').style.backgroundColor = getCol(ePct);
     }
 
     function checkWinLoss() {
-        if (gameOver) return;
-        if (playerHP <= 0) {
-            endGame(false);
-        } else if (enemyHP <= 0) {
-            endGame(true);
-        } else if (mode === 'solo') {
-            nextSoloTurn();
-        }
+        if (playerHP <= 0) endGame(false);
+        else if (enemyHP <= 0) endGame(true);
+        else if (mode === 'solo' && !turnActive) nextSoloTurn();
     }
 
     function endGame(playerWon) {
-        gameOver = true;
-        clearInterval(timerInterval);
-        showScreen('game-over-screen');
-
-        var title = document.getElementById('game-over-title');
-        var msg = document.getElementById('game-over-msg');
-        var stats = document.getElementById('game-over-stats');
-
+        clearInterval(timerInterval); showScreen('game-over-screen');
+        let title = document.getElementById('game-over-title');
+        let msg = document.getElementById('game-over-msg');
+        
         if (playerWon) {
-            title.innerText = '\u2728 VICTORY! \u2728';
-            title.style.color = '#2ecc71';
-            msg.innerText = mode === 'solo'
-                ? 'You successfully factorised your way to victory!'
-                : 'You outsmarted your opponent!';
+            title.innerText = "VICTORY!"; title.style.color = "#2ecc71";
+            msg.innerText = mode === 'solo' ? "You successfully factorised your way to victory!" : "You outsmarted your opponent!";
         } else {
-            title.innerText = 'DEFEAT...';
-            title.style.color = '#e74c3c';
-            msg.innerText = mode === 'solo'
-                ? 'Mathachu fainted! Keep practising!'
-                : 'Your opponent defeated you. Keep practising!';
-        }
-
-        if (mode === 'solo') {
-            var accuracy = questionsAnswered > 0 ? Math.round((questionsCorrect / questionsAnswered) * 100) : 0;
-            stats.innerHTML = 'Questions: ' + questionsAnswered +
-                ' &nbsp;|&nbsp; Correct: ' + questionsCorrect +
-                ' (' + accuracy + '%)' +
-                '<br>Total damage dealt: ' + totalDamageDealt;
-        } else {
-            stats.innerHTML = '';
+            title.innerText = "DEFEAT..."; title.style.color = "#e74c3c";
+            msg.innerText = mode === 'solo' ? "Mathachu fainted! Keep practicing!" : "Your opponent defeated you!";
         }
     }
 
     // --- ANIMATIONS ---
     function animateSprite(id) {
-        var el = document.getElementById(id);
-        if (id === 'player-sprite') {
-            el.style.transform = 'scaleX(-1) translateX(-20px)';
-        } else {
-            el.style.transform = 'translateX(-20px)';
-        }
-        setTimeout(function() {
-            if (id === 'player-sprite') {
-                el.style.transform = 'scaleX(-1)';
-            } else {
-                el.style.transform = 'none';
-            }
-        }, 150);
-    }
-
-    function shakeElement(id) {
-        var el = document.getElementById(id);
-        el.classList.add('shake');
-        setTimeout(function() { el.classList.remove('shake'); }, 500);
+        let el = document.getElementById(id); let orig = el.style.transform;
+        if(id === 'player-sprite') el.style.transform = 'scaleX(-1) translateX(-30px)';
+        else el.style.transform = 'translateX(-30px)';
+        setTimeout(() => { el.style.transform = orig || (id === 'player-sprite' ? 'scaleX(-1)' : 'none'); }, 150);
     }
 
     function showDamage(targetId, amount) {
-        var target = document.getElementById(targetId);
-        var battleArea = document.querySelector('.battle-area');
-        var dmgEl = document.createElement('div');
-        dmgEl.className = 'damage-text';
-        dmgEl.innerText = '-' + amount;
-
-        var rect = target.getBoundingClientRect();
-        var parentRect = battleArea.getBoundingClientRect();
-        var startTop = rect.top - parentRect.top + 10;
-        var startLeft = rect.left - parentRect.left + 10;
-
-        dmgEl.style.top = startTop + 'px';
-        dmgEl.style.left = startLeft + 'px';
-        battleArea.appendChild(dmgEl);
-
-        var start = Date.now();
-        var anim = setInterval(function() {
-            var passed = Date.now() - start;
-            if (passed > 1000) {
-                clearInterval(anim);
-                if (dmgEl.parentNode) dmgEl.remove();
-            } else {
-                dmgEl.style.opacity = String(1 - (passed / 1000));
-                dmgEl.style.top = (startTop - (passed / 15)) + 'px';
+        let target = document.getElementById(targetId);
+        let dmg = document.createElement('div');
+        dmg.className = 'damage-text'; dmg.innerText = "-" + amount;
+        dmg.style.top = (target.offsetTop + 20) + 'px';
+        dmg.style.left = (target.offsetLeft + 20) + 'px';
+        document.getElementById('battle-screen').appendChild(dmg);
+        
+        let start = Date.now();
+        let anim = setInterval(() => {
+            let passed = Date.now() - start;
+            if (passed > 1000) { clearInterval(anim); dmg.remove(); }
+            else {
+                dmg.style.opacity = 1 - (passed / 1000);
+                dmg.style.top = (target.offsetTop + 20 - (passed / 20)) + 'px';
             }
         }, 20);
     }

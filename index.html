@@ -55,10 +55,19 @@
         .hud-player { bottom: 220px; right: 20px; }
 
         .hp-bar-container {
-            width: 100%; height: 15px; background-color: #ccc;
-            border: 2px solid #333; margin-top: 5px; border-radius: 5px; overflow: hidden;
+            width: 100%; height: 18px; background-color: #ccc;
+            border: 2px solid #333; margin-top: 5px; border-radius: 5px; 
+            overflow: hidden; position: relative;
         }
         .hp-bar { height: 100%; background-color: #2ecc71; width: 100%; transition: width 0.3s; }
+        
+        /* New Numerical HP Text */
+        .hp-text {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            text-align: center; font-size: 10px; line-height: 18px;
+            color: #fff; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+            z-index: 2;
+        }
 
         .sprite { font-size: 100px; position: absolute; transition: transform 0.2s; }
         .sprite-enemy { top: 40px; right: 80px; }
@@ -71,7 +80,7 @@
         }
 
         #question-area {
-            padding: 15px; font-size: 14px; height: 50px;
+            padding: 15px; font-size: 12px; height: 50px;
             border-bottom: 2px solid #ccc; line-height: 1.5;
         }
 
@@ -83,7 +92,7 @@
         .option-btn {
             font-family: 'Press Start 2P', monospace; background: transparent;
             border: none; border-right: 2px solid #ccc; border-bottom: 2px solid #ccc;
-            font-size: 12px; cursor: pointer; padding: 5px; line-height: 1.4;
+            font-size: 11px; cursor: pointer; padding: 5px; line-height: 1.4;
         }
         .option-btn:hover:not(:disabled) { background-color: #f0f0f0; }
         .option-btn:disabled { color: #888; cursor: not-allowed; }
@@ -144,13 +153,19 @@
 
         <div class="hud hud-enemy">
             <div id="enemy-name">Wild Algebro</div>
-            <div class="hp-bar-container"><div id="enemy-hp" class="hp-bar"></div></div>
+            <div class="hp-bar-container">
+                <div id="enemy-hp-text" class="hp-text">200 / 200</div>
+                <div id="enemy-hp" class="hp-bar"></div>
+            </div>
         </div>
         <div class="sprite sprite-enemy" id="enemy-sprite">🦊</div>
 
         <div class="hud hud-player">
             <div>Mathachu (You)</div>
-            <div class="hp-bar-container"><div id="player-hp" class="hp-bar"></div></div>
+            <div class="hp-bar-container">
+                <div id="player-hp-text" class="hp-text">200 / 200</div>
+                <div id="player-hp" class="hp-bar"></div>
+            </div>
         </div>
         <div class="sprite sprite-player" id="player-sprite">🐭</div>
 
@@ -180,7 +195,11 @@
     let playerHP = maxHP;
     let enemyHP = maxHP;
     let currentCorrectAnswer = "";
+    
+    // Turn State Machine
     let turnActive = false;
+    let myStatus = 'pending'; // 'pending', 'correct', 'wrong'
+    let opponentStatus = 'pending'; 
 
     // Timer Variables
     let timeLimit = 15; 
@@ -192,7 +211,6 @@
     let conn = null;
     let isHost = false;
 
-    // Config for GitHub Pages network compatibility
     const peerConfig = {
         config: {
             'iceServers': [
@@ -290,30 +308,60 @@
         document.getElementById('timer-bar').style.width = Math.max(0, pct) + '%';
     }
 
-    // If timer runs out, player takes 25 damage locally
     function handleTimeout() {
         if (!turnActive) return;
         turnActive = false;
-        disableButtons(); 
-        animateSprite('enemy-sprite');
+        disableButtons();
         
-        let dmg = 25; 
-        playerHP -= dmg; 
-        showDamage('player-sprite', dmg);
-        document.getElementById('question-area').innerText = `Time's up! You took ${dmg} damage!`;
+        let message = "Time's up!";
+        
+        // Timeout penalty applies ONLY if you haven't guessed yet
+        if (mode === 'solo') {
+            if (myStatus === 'pending') {
+                animateSprite('enemy-sprite');
+                playerHP -= 25;
+                showDamage('player-sprite', 25);
+                message = "Time's up! You took 25 damage!";
+            }
+        } else {
+            let pDmg = 0; let eDmg = 0;
+            if (myStatus === 'pending') pDmg = 25;
+            if (opponentStatus === 'pending') eDmg = 25;
+            
+            if (pDmg > 0) {
+                animateSprite('enemy-sprite');
+                playerHP -= pDmg; showDamage('player-sprite', pDmg);
+            }
+            if (eDmg > 0) {
+                animateSprite('player-sprite');
+                enemyHP -= eDmg; showDamage('enemy-sprite', eDmg);
+            }
+            
+            if (pDmg > 0 && eDmg > 0) message = "Time's up! Both failed and took damage!";
+            else if (pDmg > 0) message = "Time's up! You failed to answer and took damage!";
+            else if (eDmg > 0) message = "Time's up! Opponent took damage!";
+            else message = "Time's up! Next round.";
+        }
+
+        document.getElementById('question-area').innerText = message;
         
         setTimeout(() => { 
             updateHP(); 
             let gameEnded = checkWinLoss();
-            
-            // If the game isn't over, trigger the next question
             if (!gameEnded) {
-                if (mode === 'solo') {
-                    nextSoloTurn();
-                } else if (mode === 'pvp' && isHost) {
-                    setTimeout(sendPvPQuestion, 1500); // Host guarantees next round
-                }
+                if (mode === 'solo') nextSoloTurn();
+                else if (mode === 'pvp' && isHost) setTimeout(sendPvPQuestion, 1500);
             }
+        }, 1500);
+    }
+
+    function handleBothWrong() {
+        turnActive = false;
+        clearInterval(timerInterval);
+        document.getElementById('question-area').innerText = "Both players missed! No damage dealt.";
+        
+        setTimeout(() => {
+            if(!checkWinLoss() && isHost) setTimeout(sendPvPQuestion, 1500);
         }, 1500);
     }
 
@@ -335,7 +383,9 @@
         let options = [qData.ans, ...qData.wrong];
         options.sort(() => Math.random() - 0.5); 
         renderQuestionUI(qData.q, qData.ans, options);
-        turnActive = true; resetTimer();
+        myStatus = 'pending';
+        turnActive = true; 
+        resetTimer();
     }
 
     // --- PVP MODE ---
@@ -349,7 +399,7 @@
         peer = new Peer(roomId, peerConfig);
         peer.on('open', (id) => updatePvPStatus(`Room Created!\nYour Room ID: ${id}\nTell your opponent to enter this!`));
         peer.on('connection', (connection) => { conn = connection; startPvP(); });
-        peer.on('error', (err) => updatePvPStatus(`Error: ${err.type}. Check school network rules.`));
+        peer.on('error', (err) => updatePvPStatus(`Error: ${err.type}. Check network rules.`));
     }
 
     function setupJoin() {
@@ -364,7 +414,7 @@
             conn.on('error', (err) => updatePvPStatus(`Connection failed: ${err.message}`));
             startPvP(); 
         });
-        peer.on('error', (err) => updatePvPStatus(`Error: ${err.type}. Check Room ID or network.`));
+        peer.on('error', (err) => updatePvPStatus(`Error: ${err.type}. Check Room ID.`));
     }
 
     function startPvP() {
@@ -377,32 +427,40 @@
             updateHP(); showScreen('battle-screen');
             document.getElementById('question-area').innerText = "Connected! Prepare for battle...";
             
-            if(isHost) setTimeout(sendPvPQuestion, 2000); // Host acts as game master
+            if(isHost) setTimeout(sendPvPQuestion, 2000);
         });
 
         conn.on('data', (data) => {
             if(data.type === 'question') {
+                myStatus = 'pending';
+                opponentStatus = 'pending';
                 turnActive = true;
                 renderQuestionUI(data.qData.q, data.qData.ans, data.options);
-                resetTimer(); // Start timer as soon as question drops
+                resetTimer();
             } 
-            else if(data.type === 'attack') {
+            else if(data.type === 'correct') {
                 if(!turnActive) return; 
                 turnActive = false;
+                opponentStatus = 'correct';
                 clearInterval(timerInterval);
                 disableButtons(); 
-                animateSprite('enemy-sprite'); // Enemy attacks you
+                animateSprite('enemy-sprite'); 
                 
                 playerHP -= data.amount; 
                 showDamage('player-sprite', data.amount);
-                document.getElementById('question-area').innerText = `Opponent answered faster! You took ${data.amount} damage!`;
+                document.getElementById('question-area').innerText = `Opponent answered first! You took ${data.amount} damage!`;
                 
                 setTimeout(() => {
                     updateHP(); 
-                    let gameEnded = checkWinLoss();
-                    // Host always sends the next question after applying opponent's attack
-                    if(!gameEnded && isHost) setTimeout(sendPvPQuestion, 1500);
+                    if(!checkWinLoss() && isHost) setTimeout(sendPvPQuestion, 1500);
                 }, 1000);
+            }
+            else if(data.type === 'wrong') {
+                opponentStatus = 'wrong';
+                // If I am already wrong too, then we both missed!
+                if (myStatus === 'wrong' && turnActive) {
+                    handleBothWrong();
+                }
             }
         });
     }
@@ -413,6 +471,8 @@
         options.sort(() => Math.random() - 0.5);
         
         conn.send({ type: 'question', qData: qData, options: options });
+        myStatus = 'pending';
+        opponentStatus = 'pending';
         turnActive = true;
         renderQuestionUI(qData.q, qData.ans, options);
         resetTimer();
@@ -435,15 +495,16 @@
     }
 
     function handleAnswerClick(selected, btnElement) {
-        if(!turnActive) return;
+        // Can only click if turn is active and haven't guessed yet
+        if(!turnActive || myStatus !== 'pending') return;
 
         if (selected === currentCorrectAnswer) {
+            myStatus = 'correct';
             turnActive = false; 
             clearInterval(timerInterval);
             disableButtons(); 
             animateSprite('player-sprite');
             
-            // Damage scales based on time left! (Max ~40, Min 20)
             let multiplier = 1 + (timeLeft / timeLimit); 
             let damage = Math.floor(20 * multiplier);
 
@@ -454,51 +515,59 @@
                 
                 setTimeout(() => {
                     updateHP(); 
-                    let gameEnded = checkWinLoss();
-                    if(!gameEnded) nextSoloTurn();
+                    if(!checkWinLoss()) nextSoloTurn();
                 }, 1000);
             } else {
-                // PvP Correct Answer
-                conn.send({ type: 'attack', amount: damage }); // Tell opponent you hit them
+                conn.send({ type: 'correct', amount: damage }); 
                 enemyHP -= damage; 
                 showDamage('enemy-sprite', damage);
                 document.getElementById('question-area').innerText = `Correct! You answered first! Dealt ${damage} damage!`;
                 
                 setTimeout(() => {
                     updateHP(); 
-                    let gameEnded = checkWinLoss();
-                    // Host guarantees the next question
-                    if(!gameEnded && isHost) setTimeout(sendPvPQuestion, 1500);
+                    if(!checkWinLoss() && isHost) setTimeout(sendPvPQuestion, 1500);
                 }, 1000);
             }
 
         } else {
-            // Wrong Option Penalty
+            // Wrong Guess!
+            myStatus = 'wrong';
             btnElement.style.backgroundColor = '#ffcccc'; 
-            btnElement.disabled = true;
+            disableButtons();
 
             if(mode === 'solo') {
-                turnActive = false; clearInterval(timerInterval); disableButtons();
-                animateSprite('enemy-sprite');
-                let dmg = 25; playerHP -= dmg; showDamage('player-sprite', dmg);
-                document.getElementById('question-area').innerText = `Wrong! Correct was:\n${currentCorrectAnswer}`;
+                turnActive = false; clearInterval(timerInterval);
+                document.getElementById('question-area').innerText = `Incorrect! No damage dealt.\nCorrect was: ${currentCorrectAnswer}`;
                 setTimeout(() => { 
-                    updateHP(); 
-                    let gameEnded = checkWinLoss();
-                    if (!gameEnded) nextSoloTurn();
+                    if (!checkWinLoss()) nextSoloTurn();
                 }, 2000);
             } else {
-                // In PvP, they are locked out of the button, taking up time
-                document.getElementById('question-area').innerText = "Incorrect! Keep trying! (Clock is ticking)";
+                // PvP: Lock them out and wait for opponent
+                conn.send({ type: 'wrong' });
+                if (opponentStatus === 'wrong') {
+                    // Opponent already guessed wrong earlier!
+                    handleBothWrong();
+                } else {
+                    document.getElementById('question-area').innerText = "Incorrect! Waiting for opponent to answer...";
+                }
             }
         }
     }
 
     function updateHP() {
-        if(playerHP < 0) playerHP = 0; if(enemyHP < 0) enemyHP = 0;
-        let pPct = (playerHP / maxHP) * 100; let ePct = (enemyHP / maxHP) * 100;
+        // Prevent negative values
+        if(playerHP < 0) playerHP = 0; 
+        if(enemyHP < 0) enemyHP = 0;
+        
+        let pPct = (playerHP / maxHP) * 100; 
+        let ePct = (enemyHP / maxHP) * 100;
+        
         document.getElementById('player-hp').style.width = pPct + '%';
         document.getElementById('enemy-hp').style.width = ePct + '%';
+        
+        // Update precise numerical text
+        document.getElementById('player-hp-text').innerText = `${Math.floor(playerHP)} / ${maxHP}`;
+        document.getElementById('enemy-hp-text').innerText = `${Math.floor(enemyHP)} / ${maxHP}`;
         
         let getCol = (pct) => pct > 50 ? '#2ecc71' : (pct > 20 ? '#f1c40f' : '#e74c3c');
         document.getElementById('player-hp').style.backgroundColor = getCol(pPct);

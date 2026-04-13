@@ -205,11 +205,24 @@
     let conn = null;
     let isHost = false;
 
+    // --- CRITICAL NETWORKING FIX: ADDED TURN SERVERS ---
+    // This allows devices on Mobile Data and strict school Wi-Fi to connect to each other safely.
     const peerConfig = {
         config: {
             'iceServers': [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { 
+                    urls: "turn:openrelay.metered.ca:80",
+                    username: "openrelayproject",
+                    credential: "openrelayproject"
+                },
+                { 
+                    urls: "turn:openrelay.metered.ca:443",
+                    username: "openrelayproject",
+                    credential: "openrelayproject"
+                }
             ]
         }
     };
@@ -382,18 +395,21 @@
         mode = 'pvp'; difficulty = level; isHost = true;
         updatePvPStatus("Creating Room...");
         
-        // Generates a 3-digit number for the student to see
         let displayId = Math.floor(100 + Math.random() * 900).toString();
-        
-        // Adds a secret prefix so it never collides with other people on the internet
         let actualRoomId = "hkdse-math-" + displayId;
         
         peer = new Peer(actualRoomId, peerConfig);
         
-        // Show the simple 3-digit ID to the student
         peer.on('open', (id) => updatePvPStatus(`Room Created! ID: ${displayId}\nTell your opponent to enter this!`));
         peer.on('connection', (connection) => { conn = connection; startPvP(); });
-        peer.on('error', (err) => updatePvPStatus(`Error: ${err.type}. Try again.`));
+        peer.on('error', (err) => {
+            console.error(err);
+            if (err.type === 'unavailable-id') {
+                updatePvPStatus(`Room ID ${displayId} taken. Click Host again.`);
+            } else {
+                updatePvPStatus(`Network Error: ${err.type}.`);
+            }
+        });
     }
 
     function setupJoin() {
@@ -401,31 +417,28 @@
         let userInput = document.getElementById('join-id').value.trim();
         if(!userInput) { updatePvPStatus("Please enter a Room ID!"); return; }
         
-        // Add the same secret prefix to find the exact room
         let joinId = "hkdse-math-" + userInput;
         
         updatePvPStatus("Connecting...");
         peer = new Peer(undefined, peerConfig);
         peer.on('open', () => { 
             conn = peer.connect(joinId);
+            conn.on('open', () => { startPvP(); });
             conn.on('error', (err) => updatePvPStatus(`Connection failed: ${err.message}`));
-            startPvP(); 
         });
-        peer.on('error', (err) => updatePvPStatus(`Error: ${err.type}. Check Room ID.`));
+        peer.on('error', (err) => updatePvPStatus(`Error: ${err.type}. Check Room ID or network.`));
     }
 
     function startPvP() {
-        conn.on('open', () => {
-            maxHP = 200; playerHP = maxHP; enemyHP = maxHP;
-            document.getElementById('enemy-name').innerText = "Opponent";
-            document.getElementById('timer-container').style.display = 'block';
-            document.getElementById('timer-bar').style.display = 'block';
-            
-            updateHP(); showScreen('battle-screen');
-            document.getElementById('question-area').innerText = "Connected! Prepare for battle...";
-            
-            if(isHost) setTimeout(sendPvPQuestion, 2000);
-        });
+        maxHP = 200; playerHP = maxHP; enemyHP = maxHP;
+        document.getElementById('enemy-name').innerText = "Opponent";
+        document.getElementById('timer-container').style.display = 'block';
+        document.getElementById('timer-bar').style.display = 'block';
+        
+        updateHP(); showScreen('battle-screen');
+        document.getElementById('question-area').innerText = "Connected! Prepare for battle...";
+        
+        if(isHost) setTimeout(sendPvPQuestion, 2000);
 
         conn.on('data', (data) => {
             if(data.type === 'question') {

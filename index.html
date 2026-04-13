@@ -204,25 +204,17 @@
     let peer = null;
     let conn = null;
     let isHost = false;
+    let joinTimeout = null;
 
-    // --- CRITICAL NETWORKING FIX: ADDED TURN SERVERS ---
-    // This allows devices on Mobile Data and strict school Wi-Fi to connect to each other safely.
+    // Fast and reliable Google STUN servers. Removed unreliable free TURN servers.
     const peerConfig = {
         config: {
             'iceServers': [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
-                { 
-                    urls: "turn:openrelay.metered.ca:80",
-                    username: "openrelayproject",
-                    credential: "openrelayproject"
-                },
-                { 
-                    urls: "turn:openrelay.metered.ca:443",
-                    username: "openrelayproject",
-                    credential: "openrelayproject"
-                }
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
             ]
         }
     };
@@ -401,9 +393,18 @@
         peer = new Peer(actualRoomId, peerConfig);
         
         peer.on('open', (id) => updatePvPStatus(`Room Created! ID: ${displayId}\nTell your opponent to enter this!`));
-        peer.on('connection', (connection) => { conn = connection; startPvP(); });
+        
+        peer.on('connection', (connection) => { 
+            conn = connection; 
+            updatePvPStatus("Player joining, opening data channel...");
+            
+            // This is the crucial fix: Host must wait for connection to be fully open before starting
+            conn.on('open', () => {
+                startPvP(); 
+            });
+        });
+
         peer.on('error', (err) => {
-            console.error(err);
             if (err.type === 'unavailable-id') {
                 updatePvPStatus(`Room ID ${displayId} taken. Click Host again.`);
             } else {
@@ -421,12 +422,36 @@
         
         updatePvPStatus("Connecting...");
         peer = new Peer(undefined, peerConfig);
+        
+        // Timeout to prevent the infinite "Connecting..." freeze
+        joinTimeout = setTimeout(() => {
+            updatePvPStatus("Connection timed out. Check code or network.");
+            peer.destroy();
+        }, 10000);
+
         peer.on('open', () => { 
-            conn = peer.connect(joinId);
-            conn.on('open', () => { startPvP(); });
-            conn.on('error', (err) => updatePvPStatus(`Connection failed: ${err.message}`));
+            // Reliable mode ensures packets are sent correctly across NATs
+            conn = peer.connect(joinId, { reliable: true });
+            
+            conn.on('open', () => { 
+                clearTimeout(joinTimeout);
+                startPvP(); 
+            });
+
+            conn.on('error', (err) => {
+                clearTimeout(joinTimeout);
+                updatePvPStatus(`Connection failed: ${err.message}`);
+            });
         });
-        peer.on('error', (err) => updatePvPStatus(`Error: ${err.type}. Check Room ID or network.`));
+
+        peer.on('error', (err) => {
+            clearTimeout(joinTimeout);
+            if (err.type === 'peer-unavailable') {
+                updatePvPStatus("Room not found! Check the 3-digit code.");
+            } else {
+                updatePvPStatus(`Error: ${err.type}.`);
+            }
+        });
     }
 
     function startPvP() {

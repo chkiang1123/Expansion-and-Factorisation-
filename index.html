@@ -251,62 +251,115 @@
         }
     }
 
-    // --- MATH GENERATION ENGINE ---
+    // --- INFINITE MATH GENERATION ALGORITHM ---
     function generateQuestionData() {
         let type = Math.random() < 0.5 ? 'expand' : 'factorise';
         let qText = "", correct = "", wrongs = [];
+        let v = ['x', 'y', 'a', 'm', 'k'][rand(0, 4)];
+        let sign = Math.random() < 0.5 ? '+' : '-';
+        let oppSign = sign === '+' ? '-' : '+';
 
         if (difficulty === 'easy') {
-            let a = rand(2, 6); let b = rand(2, 5); let c = rand(2, 7);
-            let sign = Math.random() < 0.5 ? '+' : '-';
-            let v1 = Math.random() < 0.5 ? 'x' : 'y';
+            // Focus: Common Factors
+            let a = rand(2, 9);
+            let b = rand(1, 5);
+            let c = rand(1, 9);
+            while (b === c || (b%2===0 && c%2===0)) { c = rand(1, 9); } // Basic coprime check
+            
+            let bTerm = b === 1 ? v : `${b}${v}`;
+            let abTerm = (a * b) === 1 ? v : `${a * b}${v}`;
+            
             if (type === 'expand') {
-                qText = `Expand: ${a}(${b}${v1} ${sign} ${c})`;
-                correct = `${a*b}${v1} ${sign} ${a*c}`;
-                wrongs = [`${a*b}${v1} ${sign} ${c}`, `${b}${v1} ${sign} ${a*c}`, `${a*b}${v1} ${sign === '+' ? '-' : '+'} ${a*c}`];
+                qText = `Expand: ${a}(${bTerm} ${sign} ${c})`;
+                correct = `${abTerm} ${sign} ${a * c}`;
+                wrongs = [
+                    `${abTerm} ${sign} ${c}`,
+                    `${bTerm} ${sign} ${a * c}`,
+                    `${abTerm} ${oppSign} ${a * c}`
+                ];
             } else {
-                qText = `Factorise: ${a*b}${v1} ${sign} ${a*c}`;
-                correct = `${a}(${b}${v1} ${sign} ${c})`;
-                wrongs = [`${a}(${b}${v1} ${sign === '+' ? '-' : '+'} ${c})`, `${a*b}(${v1} ${sign} ${c})`, `${a}(${b}${v1} ${sign} ${a*c})`];
+                qText = `Factorise: ${abTerm} ${sign} ${a * c}`;
+                correct = `${a}(${bTerm} ${sign} ${c})`;
+                wrongs = [
+                    `${a}(${bTerm} ${oppSign} ${c})`,
+                    `${a * b}(${v} ${sign} ${c})`,
+                    `${a}(${bTerm} ${sign} ${a * c})`
+                ];
             }
         } else if (difficulty === 'medium') {
-            if (Math.random() < 0.5) {
-                let a = rand(2, 5);
-                if (type === 'expand') {
-                    qText = `Factorise: a(x + y) + b(x + y)`; 
-                    correct = `(a + b)(x + y)`;
-                    wrongs = [`(ab)(x + y)`, `(a + b)(xy)`, `a + b + x + y`];
-                } else {
-                    qText = `Factorise: x(y + ${a}) + 2(y + ${a})`;
-                    correct = `(x + 2)(y + ${a})`;
-                    wrongs = [`(x - 2)(y + ${a})`, `2x(y + ${a})`, `(x + 2)(y - ${a})`];
-                }
-            } else {
-                let a = rand(1, 4); let b = rand(2, 6);
-                let aTerm = a === 1 ? 'x' : `${a}x`; let a2 = a === 1 ? '' : `${a*a}`;
+            // Focus: Difference of Two Squares & Grouping
+            let subtype = Math.random() < 0.5 ? 'diff_sq' : 'grouping';
+            
+            if (subtype === 'diff_sq') {
+                let a = rand(1, 6);
+                let b = rand(1, 9);
+                let aTerm = a === 1 ? v : `${a}${v}`;
+                let a2Term = a === 1 ? `${v}²` : `${a * a}${v}²`;
+                let b2 = b * b;
+                
                 if (type === 'expand') {
                     qText = `Expand: (${aTerm} - ${b})(${aTerm} + ${b})`;
-                    correct = `${a2}x² - ${b*b}`;
-                    wrongs = [`${a2}x² + ${b*b}`, `${a2}x² - ${b}`, `${a*2}x² - ${b*b}`];
+                    correct = `${a2Term} - ${b2}`;
+                    wrongs = [
+                        `${a2Term} + ${b2}`,
+                        `${a * 2}${v}² - ${b2}`,
+                        `${a2Term} - ${b}`
+                    ];
                 } else {
-                    qText = `Factorise: ${a2}x² - ${b*b}`;
+                    qText = `Factorise: ${a2Term} - ${b2}`;
                     correct = `(${aTerm} - ${b})(${aTerm} + ${b})`;
-                    wrongs = [`(${aTerm} - ${b})²`, `(${aTerm} + ${b})²`, `(${aTerm} - ${b*b})(${aTerm} + 1)`];
+                    wrongs = [
+                        `(${aTerm} - ${b})²`,
+                        `(${aTerm} + ${b})²`,
+                        `(${aTerm} - ${b2})(${aTerm} + 1)`
+                    ];
                 }
+            } else {
+                // Focus: Grouping
+                let v1 = ['x', 'm', 'p'][rand(0, 2)];
+                let v2 = ['y', 'n', 'q'][rand(0, 2)];
+                let c = rand(1, 7);
+                let d = rand(2, 7);
+                qText = `Factorise: ${v1}(${v2} + ${c}) ${sign} ${d}(${v2} + ${c})`;
+                correct = `(${v1} ${sign} ${d})(${v2} + ${c})`;
+                wrongs = [
+                    `(${v1} ${oppSign} ${d})(${v2} + ${c})`,
+                    `(${v1} ${sign} ${d})(${v2} - ${c})`,
+                    `${v1}${d}(${v2} + ${c})`
+                ];
             }
-        } else {
-            let a = rand(1, 3); let b = rand(1, 5); let sign = Math.random() < 0.5 ? '+' : '-';
-            let aTerm = a === 1 ? 'x' : `${a}x`; let a2 = a === 1 ? '' : `${a*a}`;
+        } else { 
+            // Focus: Hard (Perfect Squares)
+            let a = rand(1, 5);
+            let b = rand(1, 9);
+            let aTerm = a === 1 ? v : `${a}${v}`;
+            let a2Term = a === 1 ? `${v}²` : `${a * a}${v}²`;
+            let midTerm = `${2 * a * b}${v}`;
+            let b2 = b * b;
+
             if (type === 'expand') {
                 qText = `Expand: (${aTerm} ${sign} ${b})²`;
-                correct = `${a2}x² ${sign} ${2*a*b}x + ${b*b}`;
-                wrongs = [`${a2}x² + ${b*b}`, `${a2}x² ${sign === '+' ? '-' : '+'} ${2*a*b}x + ${b*b}`, `${a2}x² ${sign} ${a*b}x + ${b*b}`];
+                correct = `${a2Term} ${sign} ${midTerm} + ${b2}`;
+                wrongs = [
+                    `${a2Term} + ${b2}`,
+                    `${a2Term} ${sign} ${a * b}${v} + ${b2}`,
+                    `${a2Term} ${oppSign} ${midTerm} + ${b2}`
+                ];
             } else {
-                qText = `Factorise: ${a2}x² ${sign} ${2*a*b}x + ${b*b}`;
+                qText = `Factorise: ${a2Term} ${sign} ${midTerm} + ${b2}`;
                 correct = `(${aTerm} ${sign} ${b})²`;
-                wrongs = [`(${aTerm} ${sign === '+' ? '-' : '+'} ${b})²`, `(${aTerm} ${sign} ${b*b})²`, `(${aTerm} - ${b})(${aTerm} + ${b})`];
+                wrongs = [
+                    `(${aTerm} ${oppSign} ${b})²`,
+                    `(${aTerm} ${sign} ${b2})²`,
+                    `(${aTerm} - ${b})(${aTerm} + ${b})`
+                ];
             }
         }
+        
+        // Remove duplicate wrong answers dynamically and fill if needed
+        wrongs = [...new Set(wrongs)];
+        while(wrongs.length < 3) { wrongs.push("None of the above"); }
+
         return { q: qText, ans: correct, wrong: wrongs };
     }
 

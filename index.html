@@ -1,107 +1,357 @@
-// --- PEERJS NETWORKING SYSTEM ---
-    window.setupHost = function(level) {
-        mode = 'pvp'; difficulty = level; isHost = true;
-        let displayId = Math.floor(100 + Math.random() * 900).toString();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Battle PvP</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #222;
+            color: #fff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .screen {
+            display: none;
+            max-width: 600px;
+            margin: 0 auto;
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        #main-menu {
+            display: block;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+        }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #888; cursor: not-allowed; }
+        input {
+            padding: 10px;
+            font-size: 18px;
+            text-align: center;
+            width: 150px;
+        }
+        .status {
+            margin-top: 20px;
+            color: #ffeb3b;
+            font-weight: bold;
+            white-space: pre-line;
+        }
+        .battle-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .hp-bar { color: #ff4c4c; }
+        #question-area {
+            font-size: 24px;
+            margin: 20px 0;
+            min-height: 40px;
+        }
+        #options-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-menu" class="screen">
+        <h1>Math Battle PvP</h1>
+        <button onclick="showScreen('host-menu')">Host Game</button>
+        <button onclick="showScreen('join-menu')">Join Game</button>
+    </div>
+
+    <div id="host-menu" class="screen">
+        <h2>Host a Game</h2>
+        <button onclick="setupHost('easy')">Create Room</button>
+        <button onclick="showScreen('main-menu'); cleanupNetwork();">Back</button>
+        <div id="host-status" class="status"></div>
+    </div>
+
+    <div id="join-menu" class="screen">
+        <h2>Join a Game</h2>
+        <input type="text" id="join-id" placeholder="3-Digit Code" maxlength="3">
+        <br>
+        <button onclick="setupJoin()">Connect</button>
+        <button onclick="showScreen('main-menu'); cleanupNetwork();">Back</button>
+        <div id="join-status" class="status"></div>
+    </div>
+
+    <div id="battle-screen" class="screen">
+        <div class="battle-stats">
+            <div id="player-hp" class="hp-bar">Your HP: 100</div>
+            <div id="enemy-hp" class="hp-bar">Enemy HP: 100</div>
+        </div>
+        <div id="question-area">Waiting for question...</div>
+        <div id="options-area"></div>
+    </div>
+
+    <script>
+        // --- GAME VARIABLES ---
+        let mode = '';
+        let difficulty = '';
+        let isHost = false;
+        let peer = null;
+        let conn = null;
         
-        updatePvPStatus(`Creating Room...`);
-        window.cleanupNetwork(); // Reset if already connected
+        let playerHP = 100;
+        let enemyHP = 100;
+        let timerInterval;
+        let turnActive = false;
+        let myStatus = 'pending';
+        let opponentStatus = 'pending';
+        let currentAns = 0;
 
-        peer = new Peer('mathbattle-' + displayId);
+        // --- UI UTILITIES ---
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+            document.getElementById(id).style.display = 'block';
+        }
 
-        peer.on('open', (id) => {
-            updatePvPStatus(`Room Active! Code: ${displayId}\nWaiting for opponent...`);
-        });
+        function updatePvPStatus(msg) {
+            document.getElementById('host-status').innerText = msg;
+            document.getElementById('join-status').innerText = msg;
+        }
 
-        peer.on('connection', (connection) => {
-            conn = connection;
+        window.cleanupNetwork = function() {
+            if (conn) { conn.close(); conn = null; }
+            if (peer) { peer.destroy(); peer = null; }
+            updatePvPStatus("");
+        }
+
+        // --- PEERJS NETWORKING SYSTEM ---
+        window.setupHost = function(level) {
+            mode = 'pvp';
+            difficulty = level;
+            isHost = true;
+            let displayId = Math.floor(100 + Math.random() * 900).toString();
             
-            // FIX: Wait for connection to fully open before acting!
-            conn.on('open', () => {
-                setupConnectionListeners();
-                updatePvPStatus("Opponent joined! Preparing battle...");
+            updatePvPStatus(`Creating Room...`);
+            window.cleanupNetwork(); // Reset if already connected
+            
+            peer = new Peer('mathbattle-' + displayId);
+            
+            peer.on('open', (id) => {
+                updatePvPStatus(`Room Active! Code: ${displayId}\nWaiting for opponent...`);
+            });
+            
+            peer.on('connection', (connection) => {
+                conn = connection;
                 
-                // Host dictates when the game starts for both players
+                // Wait for connection to fully open before acting
+                conn.on('open', () => {
+                    setupConnectionListeners();
+                    updatePvPStatus("Opponent joined! Preparing battle...");
+                    
+                    // Host dictates when the game starts for both players
+                    setTimeout(() => {
+                        sendNetworkData({ type: 'start_game' });
+                        startPvP();
+                    }, 1500);
+                });
+            });
+            
+            peer.on('error', (err) => {
+                updatePvPStatus("Error: Code might be in use or server busy.");
+            });
+        }
+
+        window.setupJoin = function() {
+            mode = 'pvp';
+            isHost = false;
+            let displayId = document.getElementById('join-id').value.trim();
+            
+            if(!displayId) {
+                updatePvPStatus("Please enter a 3-Digit Code!");
+                return;
+            }
+            
+            updatePvPStatus("Connecting...");
+            window.cleanupNetwork();
+            
+            peer = new Peer();
+            
+            peer.on('open', (id) => {
+                conn = peer.connect('mathbattle-' + displayId);
+                
+                conn.on('open', () => {
+                    setupConnectionListeners();
+                    updatePvPStatus("Connected! Waiting for host to start...");
+                });
+                
+                conn.on('error', (err) => {
+                    updatePvPStatus("Failed to connect to Host.");
+                });
+            });
+            
+            peer.on('error', (err) => {
+                updatePvPStatus("Error connecting to server.");
+            });
+        }
+
+        function setupConnectionListeners() {
+            conn.on('data', (data) => {
+                handleNetworkData(data);
+            });
+            conn.on('close', () => {
+                alert("Opponent disconnected!");
+                location.reload();
+            });
+        }
+
+        function sendNetworkData(payload) {
+            if (conn && conn.open) {
+                conn.send(payload);
+            }
+        }
+
+        function handleNetworkData(data) {
+            if(data.type === 'start_game') {
+                startPvP();
+            } else if(data.type === 'question') {
+                myStatus = 'pending';
+                opponentStatus = 'pending';
+                turnActive = true;
+                renderQuestionUI(data.qData.q, data.qData.ans, data.options);
+                resetTimer();
+            } else if(data.type === 'correct') {
+                if(!turnActive) return;
+                turnActive = false;
+                opponentStatus = 'correct';
+                clearInterval(timerInterval);
+                disableButtons();
+                animateSprite('enemy-sprite'); // Placeholder for animation
+                
+                playerHP -= data.amount;
+                showDamage('player-sprite', data.amount); // Placeholder for damage numbers
+                document.getElementById('question-area').innerText = `Opponent answered first! You took ${data.amount} damage!`;
+                
                 setTimeout(() => {
-                    sendNetworkData({ type: 'start_game' });
-                    startPvP();
+                    updateHP();
+                    if(!checkWinLoss() && isHost) setTimeout(sendPvPQuestion, 1500);
                 }, 1500);
-            });
-        });
-
-        peer.on('error', (err) => {
-            updatePvPStatus("Error: Code might be in use or server busy.");
-        });
-    }
-
-    window.setupJoin = function() {
-        mode = 'pvp'; isHost = false;
-        let displayId = document.getElementById('join-id').value.trim();
-        if(!displayId) { updatePvPStatus("Please enter a 3-Digit Code!"); return; }
-        
-        updatePvPStatus("Connecting...");
-        window.cleanupNetwork();
-
-        peer = new Peer();
-        peer.on('open', (id) => {
-            conn = peer.connect('mathbattle-' + displayId);
-            
-            conn.on('open', () => {
-                setupConnectionListeners();
-                updatePvPStatus("Connected! Waiting for host to start...");
-                // FIX: Removed the setTimeout here. Guest now waits for Host's signal.
-            });
-
-            conn.on('error', (err) => {
-                updatePvPStatus("Failed to connect to Host.");
-            });
-        });
-
-        peer.on('error', (err) => {
-            updatePvPStatus("Error connecting to server.");
-        });
-    }
-
-    function setupConnectionListeners() {
-        conn.on('data', (data) => {
-            handleNetworkData(data);
-        });
-        conn.on('close', () => {
-            alert("Opponent disconnected!");
-            location.reload();
-        });
-    }
-
-    function sendNetworkData(payload) {
-        if (conn && conn.open) {
-            conn.send(payload);
+            } else if(data.type === 'wrong') {
+                opponentStatus = 'wrong';
+                if (myStatus === 'wrong' && turnActive) handleBothWrong();
+            }
         }
-    }
 
-    function handleNetworkData(data) {
-        // FIX: New listener for the game start signal
-        if(data.type === 'start_game') {
-            startPvP();
+        // --- GAME LOGIC ---
+        function startPvP() {
+            showScreen('battle-screen');
+            playerHP = 100;
+            enemyHP = 100;
+            updateHP();
+            if (isHost) {
+                setTimeout(sendPvPQuestion, 1000);
+            }
         }
-        else if(data.type === 'question') {
-            myStatus = 'pending'; opponentStatus = 'pending'; turnActive = true;
-            renderQuestionUI(data.qData.q, data.qData.ans, data.options);
-            resetTimer();
-        } 
-        else if(data.type === 'correct') {
-            if(!turnActive) return; 
-            turnActive = false; opponentStatus = 'correct';
-            clearInterval(timerInterval); disableButtons(); animateSprite('enemy-sprite'); 
+
+        function sendPvPQuestion() {
+            // Generate simple math question
+            let num1 = Math.floor(Math.random() * 20) + 1;
+            let num2 = Math.floor(Math.random() * 20) + 1;
+            let ans = num1 + num2;
+            let qData = { q: `${num1} + ${num2}`, ans: ans };
             
-            playerHP -= data.amount; showDamage('player-sprite', data.amount);
-            document.getElementById('question-area').innerText = `Opponent answered first! You took ${data.amount} damage!`;
+            // Generate options
+            let options = [ans, ans + 2, ans - 1, ans + 5].sort(() => Math.random() - 0.5);
             
+            let payload = { type: 'question', qData: qData, options: options };
+            handleNetworkData(payload); // Run it locally for Host
+            sendNetworkData(payload);   // Send it to Guest
+        }
+
+        function renderQuestionUI(q, ans, options) {
+            document.getElementById('question-area').innerText = `What is ${q}?`;
+            currentAns = ans;
+            
+            let optionsDiv = document.getElementById('options-area');
+            optionsDiv.innerHTML = ''; // Clear old buttons
+            
+            options.forEach(opt => {
+                let btn = document.createElement('button');
+                btn.innerText = opt;
+                btn.onclick = () => handleAnswerClick(opt);
+                optionsDiv.appendChild(btn);
+            });
+        }
+
+        function handleAnswerClick(selected) {
+            if (!turnActive) return;
+            turnActive = false;
+            clearInterval(timerInterval);
+            disableButtons();
+
+            if (selected === currentAns) {
+                myStatus = 'correct';
+                let damage = 20; // Fixed damage amount
+                enemyHP -= damage;
+                
+                document.getElementById('question-area').innerText = `Correct! You dealt ${damage} damage!`;
+                sendNetworkData({ type: 'correct', amount: damage });
+                
+                setTimeout(() => {
+                    updateHP();
+                    if(!checkWinLoss() && isHost) setTimeout(sendPvPQuestion, 1500);
+                }, 1500);
+            } else {
+                myStatus = 'wrong';
+                document.getElementById('question-area').innerText = "Wrong! Waiting for opponent...";
+                sendNetworkData({ type: 'wrong' });
+                if (opponentStatus === 'wrong') handleBothWrong();
+            }
+        }
+
+        function handleBothWrong() {
+            document.getElementById('question-area').innerText = "Both players got it wrong!";
             setTimeout(() => {
-                updateHP(); 
-                if(!checkWinLoss() && isHost) setTimeout(sendPvPQuestion, 1500);
-            }, 1000);
+                if(isHost) sendPvPQuestion();
+            }, 1500);
         }
-        else if(data.type === 'wrong') {
-            opponentStatus = 'wrong';
-            if (myStatus === 'wrong' && turnActive) handleBothWrong();
+
+        function updateHP() {
+            document.getElementById('player-hp').innerText = `Your HP: ${playerHP}`;
+            document.getElementById('enemy-hp').innerText = `Enemy HP: ${enemyHP}`;
         }
-    }
+
+        function checkWinLoss() {
+            if (playerHP <= 0) {
+                document.getElementById('question-area').innerText = "Game Over! You Lose!";
+                return true;
+            }
+            if (enemyHP <= 0) {
+                document.getElementById('question-area').innerText = "Victory! You Win!";
+                return true;
+            }
+            return false;
+        }
+
+        // Dummy placeholder functions for graphical flair you might add later
+        function resetTimer() { /* Add timer logic here if needed */ }
+        function disableButtons() { 
+            document.querySelectorAll('#options-area button').forEach(b => b.disabled = true); 
+        }
+        function animateSprite(id) { /* Add CSS animations here */ }
+        function showDamage(id, amount) { /* Add floating damage text here */ }
+
+    </script>
+</body>
+</html>

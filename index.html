@@ -38,6 +38,12 @@
         }
         .btn:hover { background-color: #eee; transform: scale(1.05); }
 
+        .char-btn {
+            display: flex; flex-direction: column; align-items: center; 
+            font-size: 10px; padding: 20px; line-height: 1.5;
+        }
+        .char-btn span { font-size: 40px; margin-bottom: 10px; }
+
         .input-box {
             font-family: 'Press Start 2P', monospace; padding: 10px; font-size: 14px;
             border: 4px solid #333; margin-bottom: 10px; text-align: center; width: 250px;
@@ -61,6 +67,8 @@
             border: 2px solid #333; margin-top: 5px; border-radius: 5px; overflow: hidden;
         }
         .hp-bar { height: 100%; background-color: #2ecc71; width: 100%; transition: width 0.3s; }
+        
+        .hp-text { font-size: 10px; margin-top: 5px; text-align: right; color: #555; }
 
         .sprite { font-size: 100px; position: absolute; transition: transform 0.2s; }
         .sprite-enemy { top: 40px; right: 80px; }
@@ -114,11 +122,22 @@
         <button class="btn" onclick="showScreen('pvp-menu')">⚔️ Multiplayer (PvP)</button>
     </div>
 
+    <div id="char-select-screen" class="screen">
+        <h2>Select Your Hero</h2>
+        <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap;">
+            <button class="btn char-btn" onclick="selectCharacter('🐭', 'Mathachu')"><span>🐭</span>Mathachu</button>
+            <button class="btn char-btn" onclick="selectCharacter('🐢', 'Squarerootle')"><span>🐢</span>Squarerootle</button>
+            <button class="btn char-btn" onclick="selectCharacter('🦎', 'Charmathend')"><span>🦎</span>Charmathend</button>
+            <button class="btn char-btn" onclick="selectCharacter('🐸', 'Bulbasum')"><span>🐸</span>Bulbasum</button>
+        </div>
+        <button class="btn" style="font-size: 10px;" onclick="showScreen('main-menu')">Back to Menu</button>
+    </div>
+
     <div id="solo-menu" class="screen">
         <h2>Select Solo Difficulty</h2>
-        <button class="btn" onclick="startSolo('easy')">Easy (Common Factors)</button>
-        <button class="btn" onclick="startSolo('medium')">Medium (Grouping/Diff Sq)</button>
-        <button class="btn" onclick="startSolo('hard')">Hard (Perfect Squares)</button>
+        <button class="btn" onclick="prepareGame(() => startSolo('easy'))">Easy (Common Factors)</button>
+        <button class="btn" onclick="prepareGame(() => startSolo('medium'))">Medium (Grouping/Diff Sq)</button>
+        <button class="btn" onclick="prepareGame(() => startSolo('hard'))">Hard (Perfect Squares)</button>
         <button class="btn" style="margin-top: 30px; font-size: 10px;" onclick="showScreen('main-menu')">Back</button>
     </div>
 
@@ -126,14 +145,14 @@
         <h2>Multiplayer PvP</h2>
         <div style="border: 2px dashed #333; padding: 15px; margin-bottom: 15px;">
             <p style="font-size: 12px; margin-bottom: 10px;">HOST A GAME (Choose Difficulty)</p>
-            <button class="btn" style="font-size: 10px;" onclick="setupHost('easy')">Easy</button>
-            <button class="btn" style="font-size: 10px;" onclick="setupHost('medium')">Med</button>
-            <button class="btn" style="font-size: 10px;" onclick="setupHost('hard')">Hard</button>
+            <button class="btn" style="font-size: 10px;" onclick="prepareGame(() => setupHost('easy'))">Easy</button>
+            <button class="btn" style="font-size: 10px;" onclick="prepareGame(() => setupHost('medium'))">Med</button>
+            <button class="btn" style="font-size: 10px;" onclick="prepareGame(() => setupHost('hard'))">Hard</button>
         </div>
         <div>
             <p style="font-size: 12px; margin-bottom: 10px;">JOIN A GAME</p>
-            <input type="text" id="join-id" class="input-box" placeholder="Enter Room ID"><br>
-            <button class="btn" onclick="setupJoin()">Join</button>
+            <input type="text" id="join-id" class="input-box" placeholder="Enter 6-Digit ID" maxlength="6"><br>
+            <button class="btn" onclick="prepareGame(setupJoin)">Join</button>
         </div>
         <p id="connection-status" style="margin-top: 15px; font-size: 12px; color: #e74c3c; line-height: 1.5;"></p>
         <button class="btn" style="margin-top: 10px; font-size: 10px;" onclick="showScreen('main-menu')">Back</button>
@@ -148,12 +167,14 @@
         <div class="hud hud-enemy">
             <div id="enemy-name">Wild Algebro</div>
             <div class="hp-bar-container"><div id="enemy-hp" class="hp-bar"></div></div>
+            <div id="enemy-hp-text" class="hp-text">200/200</div>
         </div>
         <div class="sprite sprite-enemy" id="enemy-sprite">🦊</div>
 
         <div class="hud hud-player">
-            <div>Mathachu (You)</div>
+            <div><span id="player-name-display">Mathachu</span> (You)</div>
             <div class="hp-bar-container"><div id="player-hp" class="hp-bar"></div></div>
+            <div id="player-hp-text" class="hp-text">200/200</div>
         </div>
         <div class="sprite sprite-player" id="player-sprite">🐭</div>
 
@@ -184,11 +205,17 @@
     let enemyHP = maxHP;
     let currentCorrectAnswer = "";
     let turnActive = false;
+    
+    // Character Data
+    let playerName = "Mathachu";
+    let playerEmoji = "🐭";
+    let pendingAction = null; 
 
     // Solo Variables
     let timeLimit = 15; 
     let timeLeft = timeLimit;
     let timerInterval;
+    let botTimer; 
 
     // PvP Variables
     let peer = null;
@@ -203,14 +230,31 @@
 
     function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
+    // --- CHARACTER SELECTION LOGIC ---
+    function prepareGame(actionFunction) {
+        pendingAction = actionFunction;
+        showScreen('char-select-screen');
+    }
+
+    function selectCharacter(emoji, name) {
+        playerEmoji = emoji;
+        playerName = name;
+        
+        document.getElementById('player-sprite').innerText = emoji;
+        document.getElementById('player-name-display').innerText = name;
+
+        if(pendingAction) {
+            pendingAction();
+            pendingAction = null;
+        }
+    }
+
     // --- MATH GENERATION ENGINE ---
-    // Strictly follows syllabus: Common Factors, Grouping, Diff of Squares, Perfect Squares
     function generateQuestionData() {
         let type = Math.random() < 0.5 ? 'expand' : 'factorise';
         let qText = "", correct = "", wrongs = [];
 
         if (difficulty === 'easy') {
-            // Common factors
             let a = rand(2, 6); let b = rand(2, 5); let c = rand(2, 7);
             let sign = Math.random() < 0.5 ? '+' : '-';
             let v1 = Math.random() < 0.5 ? 'x' : 'y';
@@ -224,12 +268,10 @@
                 wrongs = [`${a}(${b}${v1} ${sign === '+' ? '-' : '+'} ${c})`, `${a*b}(${v1} ${sign} ${c})`, `${a}(${b}${v1} ${sign} ${a*c})`];
             }
         } else if (difficulty === 'medium') {
-            // Grouping or Diff of Squares
             if (Math.random() < 0.5) {
-                // Grouping
                 let a = rand(2, 5);
                 if (type === 'expand') {
-                    qText = `Factorise: a(x + y) + b(x + y)`; // Custom static for expansion logic inversion
+                    qText = `Factorise: a(x + y) + b(x + y)`; 
                     correct = `(a + b)(x + y)`;
                     wrongs = [`(ab)(x + y)`, `(a + b)(xy)`, `a + b + x + y`];
                 } else {
@@ -238,7 +280,6 @@
                     wrongs = [`(x - 2)(y + ${a})`, `2x(y + ${a})`, `(x + 2)(y - ${a})`];
                 }
             } else {
-                // Diff of squares
                 let a = rand(1, 4); let b = rand(2, 6);
                 let aTerm = a === 1 ? 'x' : `${a}x`; let a2 = a === 1 ? '' : `${a*a}`;
                 if (type === 'expand') {
@@ -252,7 +293,6 @@
                 }
             }
         } else {
-            // Hard: Perfect Squares
             let a = rand(1, 3); let b = rand(1, 5); let sign = Math.random() < 0.5 ? '+' : '-';
             let aTerm = a === 1 ? 'x' : `${a}x`; let a2 = a === 1 ? '' : `${a*a}`;
             if (type === 'expand') {
@@ -276,6 +316,7 @@
         playerHP = maxHP; enemyHP = maxHP;
         
         document.getElementById('enemy-name').innerText = `Wild Algebro (Lv.${level.charAt(0).toUpperCase()})`;
+        document.getElementById('enemy-sprite').innerText = '🦊';
         document.getElementById('timer-container').style.display = 'block';
         updateHP();
         showScreen('battle-screen');
@@ -283,6 +324,8 @@
     }
 
     function nextSoloTurn() {
+        clearTimeout(botTimer); 
+        
         let qData = generateQuestionData();
         let options = [qData.ans, ...qData.wrong];
         options.sort(() => Math.random() - 0.5);
@@ -290,6 +333,34 @@
         
         turnActive = true;
         resetTimer();
+
+        let botDelay = 15000;
+        if (difficulty === 'easy') botDelay = rand(10000, 16000); 
+        else if (difficulty === 'medium') botDelay = rand(6000, 11000); 
+        else if (difficulty === 'hard') botDelay = rand(2500, 7000); 
+
+        botTimer = setTimeout(() => {
+            if (!turnActive || mode !== 'solo') return;
+            handleBotAnswer();
+        }, botDelay);
+    }
+
+    function handleBotAnswer() {
+        turnActive = false;
+        clearInterval(timerInterval);
+        disableButtons();
+        animateSprite('enemy-sprite');
+        
+        let dmg = 25; 
+        playerHP -= dmg;
+        showDamage('player-sprite', dmg);
+        
+        document.getElementById('question-area').innerText = "Algebro answered first!\nYou took " + dmg + " damage!";
+        
+        setTimeout(() => { 
+            updateHP(); 
+            checkWinLoss(); 
+        }, 2000);
     }
 
     function resetTimer() {
@@ -315,6 +386,7 @@
     function handleSoloTimeout() {
         if(!turnActive) return;
         turnActive = false;
+        clearTimeout(botTimer); 
         disableButtons();
         animateSprite('enemy-sprite');
         let dmg = 25; playerHP -= dmg; showDamage('player-sprite', dmg);
@@ -322,51 +394,91 @@
         setTimeout(() => { updateHP(); checkWinLoss(); }, 1500);
     }
 
-    // --- PVP MODE LOGIC ---
+    // --- PVP MODE LOGIC (UPDATED WITH 6-DIGIT CODE & ERROR HANDLING) ---
     function updatePvPStatus(msg) { document.getElementById('connection-status').innerText = msg; }
 
     function setupHost(level) {
         mode = 'pvp'; difficulty = level; isHost = true;
+        showScreen('pvp-menu'); 
         updatePvPStatus("Creating Room...");
-        let roomId = "math-" + Math.random().toString(36).substring(2, 6);
+        
+        // Generates a random 6-digit number between 100000 and 999999
+        let roomId = Math.floor(100000 + Math.random() * 900000).toString();
         
         peer = new Peer(roomId);
-        peer.on('open', (id) => updatePvPStatus(`Room Created!\nYour Room ID: ${id}\nWaiting for opponent...`));
-        peer.on('connection', (connection) => { conn = connection; startPvP(); });
+        
+        peer.on('open', (id) => {
+            updatePvPStatus(`Room Created!\nYour Room Code: ${id}\nWaiting for opponent...`);
+        });
+        
+        peer.on('connection', (connection) => { 
+            conn = connection; 
+            startPvP(); 
+        });
+
+        peer.on('error', (err) => {
+            updatePvPStatus("Server Error: " + err.type + "\nPlease try creating the room again.");
+        });
     }
 
     function setupJoin() {
         mode = 'pvp'; isHost = false;
         let joinId = document.getElementById('join-id').value.trim();
-        if(!joinId) { updatePvPStatus("Please enter a Room ID!"); return; }
         
-        updatePvPStatus("Connecting to " + joinId + "...");
+        // Input validation for exactly 6 digits
+        if(!joinId || !/^\d{6}$/.test(joinId)) { 
+            updatePvPStatus("Please enter a valid 6-digit Code!"); 
+            return; 
+        }
+        
+        showScreen('pvp-menu'); 
+        updatePvPStatus("Connecting to Room " + joinId + "...");
+        
         peer = new Peer();
-        peer.on('open', () => { conn = peer.connect(joinId); startPvP(); });
+        
+        peer.on('open', () => { 
+            conn = peer.connect(joinId); 
+            
+            conn.on('open', () => {
+                startPvP();
+            });
+        });
+
+        // Error handling if the code is wrong or room is closed
+        peer.on('error', (err) => {
+            if (err.type === 'peer-unavailable') {
+                updatePvPStatus("Could not find Room " + joinId + ".\nDid you type it correctly?");
+            } else {
+                updatePvPStatus("Connection Error: " + err.type);
+            }
+        });
     }
 
     function startPvP() {
-        conn.on('open', () => {
-            maxHP = 200; playerHP = maxHP; enemyHP = maxHP; // Standardize HP for PvP
-            document.getElementById('enemy-name').innerText = "Opponent";
-            document.getElementById('timer-container').style.display = 'block';
-            document.getElementById('timer-text-display').innerText = "PvP RACE!";
-            document.getElementById('timer-bar').style.display = 'none';
-            
-            updateHP();
-            showScreen('battle-screen');
-            document.getElementById('question-area').innerText = "Connected! Prepare for battle...";
-            
-            if(isHost) setTimeout(sendPvPQuestion, 2000);
-        });
+        conn.send({ type: 'init_char', name: playerName, emoji: playerEmoji });
+
+        maxHP = 200; playerHP = maxHP; enemyHP = maxHP; 
+        document.getElementById('timer-container').style.display = 'block';
+        document.getElementById('timer-text-display').innerText = "PvP RACE!";
+        document.getElementById('timer-bar').style.display = 'none';
+        
+        updateHP();
+        showScreen('battle-screen');
+        document.getElementById('question-area').innerText = "Connected! Prepare for battle...";
+        
+        if(isHost) setTimeout(sendPvPQuestion, 2000);
 
         conn.on('data', (data) => {
-            if(data.type === 'question') {
+            if(data.type === 'init_char') {
+                document.getElementById('enemy-name').innerText = data.name;
+                document.getElementById('enemy-sprite').innerText = data.emoji;
+            }
+            else if(data.type === 'question') {
                 turnActive = true;
                 renderQuestionUI(data.qData.q, data.qData.ans, data.options);
             } 
             else if(data.type === 'attack') {
-                if(!turnActive) return; // Prevent double damage logic
+                if(!turnActive) return; 
                 turnActive = false;
                 disableButtons();
                 animateSprite('enemy-sprite');
@@ -408,9 +520,9 @@
 
     function handleAnswerClick(selected, btnElement) {
         if(!turnActive) return;
+        clearTimeout(botTimer); 
 
         if (selected === currentCorrectAnswer) {
-            // CORRECT
             turnActive = false;
             clearInterval(timerInterval);
             disableButtons();
@@ -418,11 +530,9 @@
             
             let damage = 25;
             if(mode === 'solo') {
-                // Time bonus in solo
                 let multiplier = 1 + (timeLeft / timeLimit); 
                 damage = Math.floor(20 * multiplier);
             } else {
-                // Send damage to opponent in PvP
                 conn.send({ type: 'attack', amount: damage });
             }
 
@@ -437,7 +547,6 @@
             }, 1000);
 
         } else {
-            // WRONG
             btnElement.style.backgroundColor = '#ffcccc';
             btnElement.disabled = true;
 
@@ -451,7 +560,6 @@
                 document.getElementById('question-area').innerText = `Wrong! Correct was:\n${currentCorrectAnswer}`;
                 setTimeout(() => { updateHP(); checkWinLoss(); }, 2000);
             } else {
-                // PvP: Just lock the button and let them try again
                 document.getElementById('question-area').innerText = "Incorrect! Keep trying!";
             }
         }
@@ -460,12 +568,16 @@
     function updateHP() {
         if(playerHP < 0) playerHP = 0; if(enemyHP < 0) enemyHP = 0;
         let pPct = (playerHP / maxHP) * 100; let ePct = (enemyHP / maxHP) * 100;
+        
         document.getElementById('player-hp').style.width = pPct + '%';
         document.getElementById('enemy-hp').style.width = ePct + '%';
         
         let getCol = (pct) => pct > 50 ? '#2ecc71' : (pct > 20 ? '#f1c40f' : '#e74c3c');
         document.getElementById('player-hp').style.backgroundColor = getCol(pPct);
         document.getElementById('enemy-hp').style.backgroundColor = getCol(ePct);
+
+        document.getElementById('player-hp-text').innerText = playerHP + " / " + maxHP;
+        document.getElementById('enemy-hp-text').innerText = enemyHP + " / " + maxHP;
     }
 
     function checkWinLoss() {
@@ -476,16 +588,17 @@
 
     function endGame(playerWon) {
         clearInterval(timerInterval);
+        clearTimeout(botTimer); 
         showScreen('game-over-screen');
         let title = document.getElementById('game-over-title');
         let msg = document.getElementById('game-over-msg');
         
         if (playerWon) {
             title.innerText = "VICTORY!"; title.style.color = "#2ecc71";
-            msg.innerText = mode === 'solo' ? "You successfully factorised your way to victory!" : "You outsmarted your opponent!";
+            msg.innerText = mode === 'solo' ? `Your ${playerName} successfully factorised your way to victory!` : "You outsmarted your opponent!";
         } else {
             title.innerText = "DEFEAT..."; title.style.color = "#e74c3c";
-            msg.innerText = mode === 'solo' ? "Mathachu fainted! Keep practicing!" : "Your opponent defeated you!";
+            msg.innerText = mode === 'solo' ? `${playerName} fainted! Keep practicing!` : "Your opponent defeated you!";
         }
     }
 

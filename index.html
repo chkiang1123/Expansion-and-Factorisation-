@@ -221,6 +221,8 @@
     let peer = null;
     let conn = null;
     let isHost = false;
+    let pvpStartTime = 0;
+    let opponentWrong = false;
 
     // --- UTILITY ---
     function showScreen(id) {
@@ -394,7 +396,7 @@
         setTimeout(() => { updateHP(); checkWinLoss(); }, 1500);
     }
 
-    // --- PVP MODE LOGIC (UPDATED WITH 6-DIGIT CODE & ERROR HANDLING) ---
+    // --- PVP MODE LOGIC ---
     function updatePvPStatus(msg) { document.getElementById('connection-status').innerText = msg; }
 
     function setupHost(level) {
@@ -402,30 +404,19 @@
         showScreen('pvp-menu'); 
         updatePvPStatus("Creating Room...");
         
-        // Generates a random 6-digit number between 100000 and 999999
+        // Random 6-digit number
         let roomId = Math.floor(100000 + Math.random() * 900000).toString();
         
         peer = new Peer(roomId);
-        
-        peer.on('open', (id) => {
-            updatePvPStatus(`Room Created!\nYour Room Code: ${id}\nWaiting for opponent...`);
-        });
-        
-        peer.on('connection', (connection) => { 
-            conn = connection; 
-            startPvP(); 
-        });
-
-        peer.on('error', (err) => {
-            updatePvPStatus("Server Error: " + err.type + "\nPlease try creating the room again.");
-        });
+        peer.on('open', (id) => updatePvPStatus(`Room Created!\nYour Room Code: ${id}\nWaiting for opponent...`));
+        peer.on('connection', (connection) => { conn = connection; startPvP(); });
+        peer.on('error', (err) => updatePvPStatus("Server Error: " + err.type));
     }
 
     function setupJoin() {
         mode = 'pvp'; isHost = false;
         let joinId = document.getElementById('join-id').value.trim();
         
-        // Input validation for exactly 6 digits
         if(!joinId || !/^\d{6}$/.test(joinId)) { 
             updatePvPStatus("Please enter a valid 6-digit Code!"); 
             return; 
@@ -435,22 +426,13 @@
         updatePvPStatus("Connecting to Room " + joinId + "...");
         
         peer = new Peer();
-        
         peer.on('open', () => { 
             conn = peer.connect(joinId); 
-            
-            conn.on('open', () => {
-                startPvP();
-            });
+            conn.on('open', () => startPvP());
         });
-
-        // Error handling if the code is wrong or room is closed
         peer.on('error', (err) => {
-            if (err.type === 'peer-unavailable') {
-                updatePvPStatus("Could not find Room " + joinId + ".\nDid you type it correctly?");
-            } else {
-                updatePvPStatus("Connection Error: " + err.type);
-            }
+            if (err.type === 'peer-unavailable') updatePvPStatus("Could not find Room " + joinId + ".");
+            else updatePvPStatus("Connection Error: " + err.type);
         });
     }
 
@@ -474,35 +456,58 @@
                 document.getElementById('enemy-sprite').innerText = data.emoji;
             }
             else if(data.type === 'question') {
+                opponentWrong = false; // Reset stalemate check
                 turnActive = true;
                 renderQuestionUI(data.qData.q, data.qData.ans, data.options);
             } 
             else if(data.type === 'attack') {
-                if(!turnActive) return; 
+                if(!turnActive && opponentWrong) return; // Ignore if round was already stalemated
                 turnActive = false;
                 disableButtons();
                 animateSprite('enemy-sprite');
                 playerHP -= data.amount;
                 showDamage('player-sprite', data.amount);
-                document.getElementById('question-area').innerText = "Opponent answered first! You took damage!";
+                document.getElementById('question-area').innerText = `Opponent answered faster! Took ${data.amount} damage!`;
                 updateHP();
                 checkWinLoss();
+                
+                // If Host survived, Host generates the next question automatically
+                if(isHost && playerHP > 0) setTimeout(sendPvPQuestion, 2500);
+            }
+            else if(data.type === 'wrong') {
+                opponentWrong = true;
+                if (!turnActive) {
+                    // This means BOTH players have gotten it wrong
+                    document.getElementById('question-area').innerText = "Both incorrect! Stalemate!\nMoving to next question...";
+                    if (isHost && playerHP > 0 && enemyHP > 0) setTimeout(sendPvPQuestion, 3000);
+                } else {
+                    let textUI = document.getElementById('question-area').innerText;
+                    if(!textUI.includes("(Opponent missed!)")) {
+                        document.getElementById('question-area').innerText = textUI + "\n(Opponent missed!)";
+                    }
+                }
             }
         });
     }
 
     function sendPvPQuestion() {
+        if (playerHP <= 0 || enemyHP <= 0) return; // Safety check
+        
         let qData = generateQuestionData();
         let options = [qData.ans, ...qData.wrong];
         options.sort(() => Math.random() - 0.5);
         
         conn.send({ type: 'question', qData: qData, options: options });
+        
+        // Host local setup
+        opponentWrong = false; 
         turnActive = true;
         renderQuestionUI(qData.q, qData.ans, options);
     }
 
     // --- SHARED BATTLE LOGIC ---
     function renderQuestionUI(qText, ans, options) {
+        pvpStartTime = Date.now(); // Start internal timer for speed-damage scaling
         document.getElementById('question-area').innerText = qText;
         currentCorrectAnswer = ans;
         for (let i = 0; i < 4; i++) {
@@ -533,6 +538,10 @@
                 let multiplier = 1 + (timeLeft / timeLimit); 
                 damage = Math.floor(20 * multiplier);
             } else {
+                // PvP Time Multiplier Calculation (Base 20, max 40 if answered instantly)
+                let elapsedSeconds = (Date.now() - pvpStartTime) / 1000;
+                let multiplier = 1 + Math.max(0, 15 - Math.min(15, elapsedSeconds)) / 15;
+                damage = Math.floor(20 * multiplier);
                 conn.send({ type: 'attack', amount: damage });
             }
 
@@ -543,13 +552,14 @@
             setTimeout(() => {
                 updateHP();
                 checkWinLoss();
-                if(mode === 'pvp' && isHost) setTimeout(sendPvPQuestion, 1000);
+                
+                // If Host answered correctly, host triggers next question
+                if(mode === 'pvp' && isHost && enemyHP > 0) setTimeout(sendPvPQuestion, 1500);
             }, 1000);
 
         } else {
             btnElement.style.backgroundColor = '#ffcccc';
-            btnElement.disabled = true;
-
+            
             if(mode === 'solo') {
                 turnActive = false;
                 clearInterval(timerInterval);
@@ -560,7 +570,17 @@
                 document.getElementById('question-area').innerText = `Wrong! Correct was:\n${currentCorrectAnswer}`;
                 setTimeout(() => { updateHP(); checkWinLoss(); }, 2000);
             } else {
-                document.getElementById('question-area').innerText = "Incorrect! Keep trying!";
+                // PvP Incorrect Guess Logic (One attempt only)
+                turnActive = false;
+                disableButtons(); // Lock out the player from guessing again
+                
+                if (opponentWrong) {
+                    document.getElementById('question-area').innerText = "Both incorrect! Stalemate!\nMoving to next question...";
+                    if (isHost && playerHP > 0 && enemyHP > 0) setTimeout(sendPvPQuestion, 3000);
+                } else {
+                    conn.send({ type: 'wrong' });
+                    document.getElementById('question-area').innerText = "Incorrect! Waiting for opponent...";
+                }
             }
         }
     }

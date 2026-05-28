@@ -46,7 +46,7 @@
 
         .input-box {
             font-family: 'Press Start 2P', monospace; padding: 10px; font-size: 14px;
-            border: 4px solid #333; margin-bottom: 10px; text-align: center; width: 250px;
+            border: 4px solid #333; margin-bottom: 10px; text-align: center; width: 300px;
         }
 
         /* Battle Scene */
@@ -151,7 +151,7 @@
         </div>
         <div>
             <p style="font-size: 12px; margin-bottom: 10px;">JOIN A GAME</p>
-            <input type="text" id="join-id" class="input-box" placeholder="Enter 6-Digit ID" maxlength="6"><br>
+            <input type="text" id="join-id" class="input-box" placeholder="e.g. MATH-123456" maxlength="15"><br>
             <button class="btn" onclick="prepareGame(setupJoin)">Join</button>
         </div>
         <p id="connection-status" style="margin-top: 15px; font-size: 12px; color: #e74c3c; line-height: 1.5;"></p>
@@ -429,36 +429,48 @@
         showScreen('pvp-menu'); 
         updatePvPStatus("Creating Reliable Room...");
         
-        let roomId = Math.floor(100000 + Math.random() * 900000).toString();
+        // Updated to explicitly use a prefix so collisions don't happen
+        let roomId = 'MATH-' + Math.floor(100000 + Math.random() * 900000).toString();
         
-        // Initializing with Google STUN Servers
         peer = new Peer(roomId, customPeerConfig);
         
         peer.on('open', (id) => updatePvPStatus(`Room Created!\nYour Room Code: ${id}\nWaiting for opponent...`));
-        peer.on('connection', (connection) => { conn = connection; startPvP(); });
+        
+        peer.on('connection', (connection) => { 
+            conn = connection; 
+            // FIX: The host must wait for the connection tube to 'open' before starting
+            conn.on('open', () => {
+                startPvP(); 
+            });
+        });
+        
         peer.on('error', (err) => updatePvPStatus("Server Error: " + err.type + "\nTry again."));
     }
 
     function setupJoin() {
         mode = 'pvp'; isHost = false;
-        let joinId = document.getElementById('join-id').value.trim();
+        // Make it uppercase automatically to avoid case-sensitive errors
+        let joinId = document.getElementById('join-id').value.trim().toUpperCase();
         
-        if(!joinId || !/^\d{6}$/.test(joinId)) { 
-            updatePvPStatus("Please enter a valid 6-digit Code!"); 
+        if(!joinId) { 
+            updatePvPStatus("Please enter a valid Room Code!"); 
             return; 
         }
         
         showScreen('pvp-menu'); 
         updatePvPStatus("Connecting to Room " + joinId + "...");
         
-        // Initializing with Google STUN Servers
         peer = new Peer(undefined, customPeerConfig);
         
         peer.on('open', () => { 
-            conn = peer.connect(joinId); 
-            conn.on('open', () => startPvP());
+            conn = peer.connect(joinId, { reliable: true }); 
+            // FIX: Joiner waits for the connection to open, then starts
+            conn.on('open', () => {
+                startPvP();
+            });
             conn.on('error', (err) => updatePvPStatus("Connection Error: " + err));
         });
+        
         peer.on('error', (err) => {
             if (err.type === 'peer-unavailable') updatePvPStatus("Could not find Room " + joinId + ". Ensure host is ready.");
             else updatePvPStatus("Connection Error: " + err.type);
@@ -466,6 +478,7 @@
     }
 
     function startPvP() {
+        // Send initial character data now that we know the connection is fully open
         conn.send({ type: 'init_char', name: playerName, emoji: playerEmoji });
 
         maxHP = 200; playerHP = maxHP; enemyHP = maxHP; 
@@ -477,6 +490,7 @@
         showScreen('battle-screen');
         document.getElementById('question-area').innerText = "Connected! Prepare for battle...";
         
+        // Let players read the "Connected" text briefly before questions start
         if(isHost) setTimeout(sendPvPQuestion, 2000);
 
         conn.on('data', (data) => {

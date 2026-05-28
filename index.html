@@ -198,7 +198,7 @@
 
 <script>
     // --- GLOBAL GAME STATE ---
-    let mode = 'solo'; // 'solo' or 'pvp'
+    let mode = 'solo'; 
     let difficulty = 'easy';
     let maxHP = 200;
     let playerHP = maxHP;
@@ -223,6 +223,17 @@
     let isHost = false;
     let pvpStartTime = 0;
     let opponentWrong = false;
+
+    // --- WebRTC UPGRADE: Google STUN Servers ---
+    const customPeerConfig = {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        }
+    };
 
     // --- UTILITY ---
     function showScreen(id) {
@@ -357,10 +368,9 @@
         resetTimer();
 
         let botDelay = 15000;
-        // Adjusted BOT DELAYS down below:
         if (difficulty === 'easy') botDelay = rand(10000, 16000); 
         else if (difficulty === 'medium') botDelay = rand(6000, 11000); 
-        else if (difficulty === 'hard') botDelay = rand(10000, 14500); // Now waits between 10 to 14.5 seconds
+        else if (difficulty === 'hard') botDelay = rand(10000, 14500); 
 
         botTimer = setTimeout(() => {
             if (!turnActive || mode !== 'solo') return;
@@ -380,10 +390,7 @@
         
         document.getElementById('question-area').innerText = "Algebro answered first!\nYou took " + dmg + " damage!";
         
-        setTimeout(() => { 
-            updateHP(); 
-            checkWinLoss(); 
-        }, 2000);
+        setTimeout(() => { updateHP(); checkWinLoss(); }, 2000);
     }
 
     function resetTimer() {
@@ -393,10 +400,7 @@
         timerInterval = setInterval(() => {
             timeLeft -= 0.1;
             updateTimerUI();
-            if (timeLeft <= 0) { 
-                clearInterval(timerInterval); 
-                handleSoloTimeout(); 
-            }
+            if (timeLeft <= 0) { clearInterval(timerInterval); handleSoloTimeout(); }
         }, 100);
     }
 
@@ -423,14 +427,16 @@
     function setupHost(level) {
         mode = 'pvp'; difficulty = level; isHost = true;
         showScreen('pvp-menu'); 
-        updatePvPStatus("Creating Room...");
+        updatePvPStatus("Creating Reliable Room...");
         
         let roomId = Math.floor(100000 + Math.random() * 900000).toString();
         
-        peer = new Peer(roomId);
+        // Initializing with Google STUN Servers
+        peer = new Peer(roomId, customPeerConfig);
+        
         peer.on('open', (id) => updatePvPStatus(`Room Created!\nYour Room Code: ${id}\nWaiting for opponent...`));
         peer.on('connection', (connection) => { conn = connection; startPvP(); });
-        peer.on('error', (err) => updatePvPStatus("Server Error: " + err.type));
+        peer.on('error', (err) => updatePvPStatus("Server Error: " + err.type + "\nTry again."));
     }
 
     function setupJoin() {
@@ -445,13 +451,16 @@
         showScreen('pvp-menu'); 
         updatePvPStatus("Connecting to Room " + joinId + "...");
         
-        peer = new Peer();
+        // Initializing with Google STUN Servers
+        peer = new Peer(undefined, customPeerConfig);
+        
         peer.on('open', () => { 
             conn = peer.connect(joinId); 
             conn.on('open', () => startPvP());
+            conn.on('error', (err) => updatePvPStatus("Connection Error: " + err));
         });
         peer.on('error', (err) => {
-            if (err.type === 'peer-unavailable') updatePvPStatus("Could not find Room " + joinId + ".");
+            if (err.type === 'peer-unavailable') updatePvPStatus("Could not find Room " + joinId + ". Ensure host is ready.");
             else updatePvPStatus("Connection Error: " + err.type);
         });
     }
@@ -514,155 +523,3 @@
         let qData = generateQuestionData();
         let options = [qData.ans, ...qData.wrong];
         options.sort(() => Math.random() - 0.5);
-        
-        conn.send({ type: 'question', qData: qData, options: options });
-        
-        opponentWrong = false; 
-        turnActive = true;
-        renderQuestionUI(qData.q, qData.ans, options);
-    }
-
-    // --- SHARED BATTLE LOGIC ---
-    function renderQuestionUI(qText, ans, options) {
-        pvpStartTime = Date.now(); 
-        document.getElementById('question-area').innerText = qText;
-        currentCorrectAnswer = ans;
-        for (let i = 0; i < 4; i++) {
-            let btn = document.getElementById('opt' + i);
-            btn.innerText = options[i];
-            btn.disabled = false;
-            btn.style.backgroundColor = 'transparent';
-            btn.onclick = () => handleAnswerClick(options[i], btn);
-        }
-    }
-
-    function disableButtons() {
-        for (let i = 0; i < 4; i++) document.getElementById('opt' + i).disabled = true;
-    }
-
-    function handleAnswerClick(selected, btnElement) {
-        if(!turnActive) return;
-        clearTimeout(botTimer); 
-
-        if (selected === currentCorrectAnswer) {
-            turnActive = false;
-            clearInterval(timerInterval);
-            disableButtons();
-            animateSprite('player-sprite');
-            
-            let damage = 25;
-            if(mode === 'solo') {
-                let multiplier = 1 + (timeLeft / timeLimit); 
-                damage = Math.floor(20 * multiplier);
-            } else {
-                let elapsedSeconds = (Date.now() - pvpStartTime) / 1000;
-                let multiplier = 1 + Math.max(0, 15 - Math.min(15, elapsedSeconds)) / 15;
-                damage = Math.floor(20 * multiplier);
-                conn.send({ type: 'attack', amount: damage });
-            }
-
-            enemyHP -= damage;
-            showDamage('enemy-sprite', damage);
-            document.getElementById('question-area').innerText = `Correct! Dealt ${damage} damage!`;
-            
-            setTimeout(() => {
-                updateHP();
-                checkWinLoss();
-                
-                if(mode === 'pvp' && isHost && enemyHP > 0) setTimeout(sendPvPQuestion, 1500);
-            }, 1000);
-
-        } else {
-            btnElement.style.backgroundColor = '#ffcccc';
-            
-            if(mode === 'solo') {
-                turnActive = false;
-                clearInterval(timerInterval);
-                disableButtons();
-                animateSprite('enemy-sprite');
-                let dmg = 25; playerHP -= dmg;
-                showDamage('player-sprite', dmg);
-                document.getElementById('question-area').innerText = `Wrong! Correct was:\n${currentCorrectAnswer}`;
-                setTimeout(() => { updateHP(); checkWinLoss(); }, 2000);
-            } else {
-                turnActive = false;
-                disableButtons(); 
-                
-                if (opponentWrong) {
-                    document.getElementById('question-area').innerText = "Both incorrect! Stalemate!\nMoving to next question...";
-                    if (isHost && playerHP > 0 && enemyHP > 0) setTimeout(sendPvPQuestion, 3000);
-                } else {
-                    conn.send({ type: 'wrong' });
-                    document.getElementById('question-area').innerText = "Incorrect! Waiting for opponent...";
-                }
-            }
-        }
-    }
-
-    function updateHP() {
-        if(playerHP < 0) playerHP = 0; if(enemyHP < 0) enemyHP = 0;
-        let pPct = (playerHP / maxHP) * 100; let ePct = (enemyHP / maxHP) * 100;
-        
-        document.getElementById('player-hp').style.width = pPct + '%';
-        document.getElementById('enemy-hp').style.width = ePct + '%';
-        
-        let getCol = (pct) => pct > 50 ? '#2ecc71' : (pct > 20 ? '#f1c40f' : '#e74c3c');
-        document.getElementById('player-hp').style.backgroundColor = getCol(pPct);
-        document.getElementById('enemy-hp').style.backgroundColor = getCol(ePct);
-
-        document.getElementById('player-hp-text').innerText = playerHP + " / " + maxHP;
-        document.getElementById('enemy-hp-text').innerText = enemyHP + " / " + maxHP;
-    }
-
-    function checkWinLoss() {
-        if (playerHP <= 0) endGame(false);
-        else if (enemyHP <= 0) endGame(true);
-        else if (mode === 'solo' && !turnActive) nextSoloTurn();
-    }
-
-    function endGame(playerWon) {
-        clearInterval(timerInterval);
-        clearTimeout(botTimer); 
-        showScreen('game-over-screen');
-        let title = document.getElementById('game-over-title');
-        let msg = document.getElementById('game-over-msg');
-        
-        if (playerWon) {
-            title.innerText = "VICTORY!"; title.style.color = "#2ecc71";
-            msg.innerText = mode === 'solo' ? `Your ${playerName} successfully factorised your way to victory!` : "You outsmarted your opponent!";
-        } else {
-            title.innerText = "DEFEAT..."; title.style.color = "#e74c3c";
-            msg.innerText = mode === 'solo' ? `${playerName} fainted! Keep practicing!` : "Your opponent defeated you!";
-        }
-    }
-
-    // --- ANIMATIONS ---
-    function animateSprite(id) {
-        let el = document.getElementById(id);
-        let orig = el.style.transform;
-        if(id === 'player-sprite') el.style.transform = 'scaleX(-1) translateX(-30px)';
-        else el.style.transform = 'translateX(-30px)';
-        setTimeout(() => { el.style.transform = orig || (id === 'player-sprite' ? 'scaleX(-1)' : 'none'); }, 150);
-    }
-
-    function showDamage(targetId, amount) {
-        let target = document.getElementById(targetId);
-        let dmg = document.createElement('div');
-        dmg.className = 'damage-text'; dmg.innerText = "-" + amount;
-        dmg.style.top = (target.offsetTop + 20) + 'px';
-        dmg.style.left = (target.offsetLeft + 20) + 'px';
-        document.getElementById('battle-screen').appendChild(dmg);
-        
-        let start = Date.now();
-        let anim = setInterval(() => {
-            let passed = Date.now() - start;
-            if (passed > 1000) { clearInterval(anim); dmg.remove(); }
-            else {
-                dmg.style.opacity = 1 - (passed / 1000);
-                dmg.style.top = (target.offsetTop + 20 - (passed / 20)) + 'px';
-            }
-        }, 20);
-    }
-</script>
-</body>
-</html>

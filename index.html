@@ -223,17 +223,7 @@
     let isHost = false;
     let pvpStartTime = 0;
     let opponentWrong = false;
-
-    // --- WebRTC STUN Servers ---
-    const customPeerConfig = {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        }
-    };
+    let gameHasStarted = false;
 
     // --- UTILITY ---
     function showScreen(id) {
@@ -248,14 +238,10 @@
     }
 
     function selectCharacter(emoji, name) {
-        playerEmoji = emoji;
-        playerName = name;
+        playerEmoji = emoji; playerName = name;
         document.getElementById('player-sprite').innerText = emoji;
         document.getElementById('player-name-display').innerText = name;
-        if(pendingAction) {
-            pendingAction();
-            pendingAction = null;
-        }
+        if(pendingAction) { pendingAction(); pendingAction = null; }
     }
 
     // --- MATH GENERATION ---
@@ -331,20 +317,12 @@
     function nextSoloTurn() {
         clearTimeout(botTimer); 
         let qData = generateQuestionData();
-        let options = [qData.ans, ...qData.wrong];
-        options.sort(() => Math.random() - 0.5);
+        let options = [qData.ans, ...qData.wrong]; options.sort(() => Math.random() - 0.5);
         renderQuestionUI(qData.q, qData.ans, options);
         turnActive = true; resetTimer();
 
-        let botDelay = 15000;
-        if (difficulty === 'easy') botDelay = rand(10000, 16000); 
-        else if (difficulty === 'medium') botDelay = rand(6000, 11000); 
-        else if (difficulty === 'hard') botDelay = rand(10000, 14500); 
-
-        botTimer = setTimeout(() => {
-            if (!turnActive || mode !== 'solo') return;
-            handleBotAnswer();
-        }, botDelay);
+        let botDelay = difficulty === 'easy' ? rand(10000, 16000) : (difficulty === 'medium' ? rand(6000, 11000) : rand(10000, 14500));
+        botTimer = setTimeout(() => { if (turnActive && mode === 'solo') handleBotAnswer(); }, botDelay);
     }
 
     function handleBotAnswer() {
@@ -368,107 +346,88 @@
     }
 
     function handleSoloTimeout() {
-        if(!turnActive) return;
-        turnActive = false; clearTimeout(botTimer); disableButtons(); animateSprite('enemy-sprite');
+        if(!turnActive) return; turnActive = false; clearTimeout(botTimer); disableButtons(); animateSprite('enemy-sprite');
         let dmg = 25; playerHP -= dmg; showDamage('player-sprite', dmg);
         document.getElementById('question-area').innerText = `Time's up! Algebro dealt ${dmg} damage!`;
         setTimeout(() => { updateHP(); checkWinLoss(); }, 1500);
     }
 
-    // --- PVP MODE UPGRADE ---
+    // --- BULLETPROOF PVP MODE ---
     function updatePvPStatus(msg) { document.getElementById('connection-status').innerText = msg; }
 
-    function applyPeerStability(peerObj) {
-        // Automatically try to reconnect if the PeerJS server drops connection
-        peerObj.on('disconnected', () => {
-            console.log("Disconnected from signaling server. Reconnecting...");
-            peerObj.reconnect();
-        });
-    }
-
     function setupHost(level) {
-        mode = 'pvp'; difficulty = level; isHost = true;
-        showScreen('pvp-menu'); 
-        updatePvPStatus("Creating Reliable Room...");
+        mode = 'pvp'; difficulty = level; isHost = true; gameHasStarted = false;
+        showScreen('pvp-menu'); updatePvPStatus("Connecting to Server...");
         
         let roomId = 'MATH-' + Math.floor(100000 + Math.random() * 900000).toString();
-        peer = new Peer(roomId, customPeerConfig);
-        applyPeerStability(peer);
+        peer = new Peer(roomId); // Removed custom config for stability
         
         peer.on('open', (id) => {
-            // Only show the 6 numbers to make it easy for students to read
             let displayCode = id.replace('MATH-', '');
             updatePvPStatus(`Room Created!\nGive this Code to your opponent:\n-> ${displayCode} <-\n\nWaiting for opponent...`);
         });
         
         peer.on('connection', (connection) => { 
             conn = connection; 
-            conn.on('open', () => startPvP());
-            conn.on('close', () => {
-                document.getElementById('question-area').innerText = "OPPONENT DISCONNECTED!";
-                disableButtons();
+            setupPvPDataHandlers();
+            
+            // Wait for Joiner to confirm they are actually ready
+            conn.on('open', () => {
+                console.log("Host sees connection as open.");
             });
         });
         
         peer.on('error', (err) => updatePvPStatus("Server Error: " + err.type + "\nTry again."));
+        peer.on('disconnected', () => peer.reconnect());
     }
 
     function setupJoin() {
-        mode = 'pvp'; isHost = false;
-        
-        // FOOLPROOF INPUT LOGIC: Removes spaces, forces uppercase
+        mode = 'pvp'; isHost = false; gameHasStarted = false;
         let rawInput = document.getElementById('join-id').value.trim().toUpperCase();
-        
         if(!rawInput) { updatePvPStatus("Please enter a Room Code!"); return; }
 
-        // If they only typed numbers, automatically add the MATH- prefix
-        let joinId = rawInput;
-        if (/^\d{6}$/.test(rawInput)) {
-            joinId = 'MATH-' + rawInput;
-        } else if (!rawInput.startsWith('MATH-')) {
-            joinId = 'MATH-' + rawInput; // Fallback catch
-        }
+        let joinId = /^\d{6}$/.test(rawInput) ? 'MATH-' + rawInput : (!rawInput.startsWith('MATH-') ? 'MATH-' + rawInput : rawInput);
+        showScreen('pvp-menu'); updatePvPStatus("Finding Room " + joinId.replace('MATH-', '') + "...");
         
-        showScreen('pvp-menu'); 
-        updatePvPStatus("Connecting to Room " + joinId.replace('MATH-', '') + "...");
-        
-        peer = new Peer(undefined, customPeerConfig);
-        applyPeerStability(peer);
+        peer = new Peer(); 
         
         peer.on('open', () => { 
-            conn = peer.connect(joinId, { reliable: true }); 
-            conn.on('open', () => startPvP());
-            conn.on('close', () => {
-                document.getElementById('question-area').innerText = "OPPONENT DISCONNECTED!";
-                disableButtons();
+            // Removed {reliable: true} to prevent browser hangs
+            conn = peer.connect(joinId); 
+            setupPvPDataHandlers();
+            
+            conn.on('open', () => {
+                updatePvPStatus("Connection established! Sending ready signal...");
+                // Step 2: Joiner tells host they are ready
+                conn.send({ type: 'joiner_ready', name: playerName, emoji: playerEmoji });
             });
-            conn.on('error', (err) => updatePvPStatus("Connection Error: " + err));
         });
         
         peer.on('error', (err) => {
-            if (err.type === 'peer-unavailable') updatePvPStatus("Room not found. Check the code and make sure Host is ready.");
+            if (err.type === 'peer-unavailable') updatePvPStatus("Room not found. Check the code.");
             else updatePvPStatus("Connection Error: " + err.type);
         });
+        peer.on('disconnected', () => peer.reconnect());
     }
 
-    function startPvP() {
-        conn.send({ type: 'init_char', name: playerName, emoji: playerEmoji });
-
-        maxHP = 200; playerHP = maxHP; enemyHP = maxHP; 
-        document.getElementById('timer-container').style.display = 'block';
-        document.getElementById('timer-text-display').innerText = "PvP RACE!";
-        document.getElementById('timer-bar').style.display = 'none';
-        
-        updateHP(); showScreen('battle-screen');
-        document.getElementById('question-area').innerText = "Connected! Prepare for battle...";
-        
-        if(isHost) setTimeout(sendPvPQuestion, 2000);
-
+    function setupPvPDataHandlers() {
         conn.on('data', (data) => {
-            if(data.type === 'init_char') {
-                document.getElementById('enemy-name').innerText = data.name;
-                document.getElementById('enemy-sprite').innerText = data.emoji;
+            
+            // --- HANDSHAKE LOGIC ---
+            if(data.type === 'joiner_ready' && isHost) {
+                // Host received ready signal from Joiner. Send host data back and start.
+                conn.send({ type: 'host_ready', name: playerName, emoji: playerEmoji });
+                updateEnemyHUD(data.name, data.emoji);
+                startPvPScreen();
+                setTimeout(sendPvPQuestion, 2000); // Host triggers first question
             }
+            else if(data.type === 'host_ready' && !isHost) {
+                // Joiner received host data. Start screen.
+                updateEnemyHUD(data.name, data.emoji);
+                startPvPScreen();
+            }
+            
+            // --- GAMEPLAY LOGIC ---
             else if(data.type === 'question') {
                 opponentWrong = false; turnActive = true;
                 renderQuestionUI(data.qData.q, data.qData.ans, data.options);
@@ -480,7 +439,7 @@
                 document.getElementById('question-area').innerText = `Opponent answered faster! Took ${data.amount} damage!`;
                 updateHP(); checkWinLoss();
                 
-                if(isHost && playerHP > 0) setTimeout(sendPvPQuestion, 2500);
+                if(isHost && playerHP > 0 && enemyHP > 0) setTimeout(sendPvPQuestion, 2500);
             }
             else if(data.type === 'wrong') {
                 opponentWrong = true;
@@ -493,13 +452,35 @@
                 }
             }
         });
+
+        conn.on('close', () => {
+            if(gameHasStarted) {
+                document.getElementById('question-area').innerText = "OPPONENT DISCONNECTED!";
+                disableButtons(); turnActive = false;
+            }
+        });
+    }
+
+    function updateEnemyHUD(name, emoji) {
+        document.getElementById('enemy-name').innerText = name;
+        document.getElementById('enemy-sprite').innerText = emoji;
+    }
+
+    function startPvPScreen() {
+        gameHasStarted = true;
+        maxHP = 200; playerHP = maxHP; enemyHP = maxHP; 
+        document.getElementById('timer-container').style.display = 'block';
+        document.getElementById('timer-text-display').innerText = "PvP RACE!";
+        document.getElementById('timer-bar').style.display = 'none';
+        
+        updateHP(); showScreen('battle-screen');
+        document.getElementById('question-area').innerText = "Connected! Prepare for battle...";
     }
 
     function sendPvPQuestion() {
         if (playerHP <= 0 || enemyHP <= 0) return;
         let qData = generateQuestionData();
-        let options = [qData.ans, ...qData.wrong];
-        options.sort(() => Math.random() - 0.5);
+        let options = [qData.ans, ...qData.wrong]; options.sort(() => Math.random() - 0.5);
         
         conn.send({ type: 'question', qData: qData, options: options });
         opponentWrong = false; turnActive = true;
@@ -508,9 +489,7 @@
 
     // --- SHARED BATTLE LOGIC ---
     function renderQuestionUI(qText, ans, options) {
-        pvpStartTime = Date.now(); 
-        document.getElementById('question-area').innerText = qText;
-        currentCorrectAnswer = ans;
+        pvpStartTime = Date.now(); document.getElementById('question-area').innerText = qText; currentCorrectAnswer = ans;
         for (let i = 0; i < 4; i++) {
             let btn = document.getElementById('opt' + i);
             btn.innerText = options[i]; btn.disabled = false; btn.style.backgroundColor = 'transparent';
@@ -531,8 +510,7 @@
             
             let damage = 25;
             if(mode === 'solo') {
-                let multiplier = 1 + (timeLeft / timeLimit); 
-                damage = Math.floor(20 * multiplier);
+                let multiplier = 1 + (timeLeft / timeLimit); damage = Math.floor(20 * multiplier);
             } else {
                 let elapsedSeconds = (Date.now() - pvpStartTime) / 1000;
                 let multiplier = 1 + Math.max(0, 15 - Math.min(15, elapsedSeconds)) / 15;
@@ -573,14 +551,11 @@
         if(playerHP < 0) playerHP = 0; if(enemyHP < 0) enemyHP = 0;
         let pPct = (playerHP / maxHP) * 100; let ePct = (enemyHP / maxHP) * 100;
         
-        document.getElementById('player-hp').style.width = pPct + '%';
-        document.getElementById('enemy-hp').style.width = ePct + '%';
+        document.getElementById('player-hp').style.width = pPct + '%'; document.getElementById('enemy-hp').style.width = ePct + '%';
         
         let getCol = (pct) => pct > 50 ? '#2ecc71' : (pct > 20 ? '#f1c40f' : '#e74c3c');
-        document.getElementById('player-hp').style.backgroundColor = getCol(pPct);
-        document.getElementById('enemy-hp').style.backgroundColor = getCol(ePct);
-        document.getElementById('player-hp-text').innerText = playerHP + " / " + maxHP;
-        document.getElementById('enemy-hp-text').innerText = enemyHP + " / " + maxHP;
+        document.getElementById('player-hp').style.backgroundColor = getCol(pPct); document.getElementById('enemy-hp').style.backgroundColor = getCol(ePct);
+        document.getElementById('player-hp-text').innerText = playerHP + " / " + maxHP; document.getElementById('enemy-hp-text').innerText = enemyHP + " / " + maxHP;
     }
 
     function checkWinLoss() {
@@ -591,8 +566,7 @@
 
     function endGame(playerWon) {
         clearInterval(timerInterval); clearTimeout(botTimer); showScreen('game-over-screen');
-        let title = document.getElementById('game-over-title');
-        let msg = document.getElementById('game-over-msg');
+        let title = document.getElementById('game-over-title'); let msg = document.getElementById('game-over-msg');
         
         if (playerWon) {
             title.innerText = "VICTORY!"; title.style.color = "#2ecc71";

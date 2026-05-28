@@ -118,8 +118,8 @@
     <div id="main-menu" class="screen">
         <h1>S.2 Math Battle</h1>
         <p style="font-size: 12px; margin-bottom: 30px;">Identities & Factorisation</p>
-        <button class="btn" onclick="showScreen('solo-menu')">👤 Solo Play</button>
-        <button class="btn" onclick="showScreen('pvp-menu')">⚔️ Multiplayer (PvP)</button>
+        <button class="btn" onclick="openSoloMenu()">👤 Solo Play</button>
+        <button class="btn" onclick="openPvPMenu()">⚔️ Multiplayer (PvP)</button>
     </div>
 
     <div id="char-select-screen" class="screen">
@@ -130,7 +130,7 @@
             <button class="btn char-btn" onclick="selectCharacter('🦎', 'Charmathend')"><span>🦎</span>Charmathend</button>
             <button class="btn char-btn" onclick="selectCharacter('🐸', 'Bulbasum')"><span>🐸</span>Bulbasum</button>
         </div>
-        <button class="btn" style="font-size: 10px;" onclick="showScreen('main-menu')">Back to Menu</button>
+        <button class="btn" style="font-size: 10px;" onclick="quitToMenu()">Back to Menu</button>
     </div>
 
     <div id="solo-menu" class="screen">
@@ -138,7 +138,7 @@
         <button class="btn" onclick="prepareGame(() => startSolo('easy'))">Easy (Common Factors)</button>
         <button class="btn" onclick="prepareGame(() => startSolo('medium'))">Medium (Grouping/Diff Sq)</button>
         <button class="btn" onclick="prepareGame(() => startSolo('hard'))">Hard (Perfect Squares)</button>
-        <button class="btn" style="margin-top: 30px; font-size: 10px;" onclick="showScreen('main-menu')">Back</button>
+        <button class="btn" style="margin-top: 30px; font-size: 10px;" onclick="quitToMenu()">Back</button>
     </div>
 
     <div id="pvp-menu" class="screen">
@@ -155,7 +155,7 @@
             <button class="btn" onclick="prepareGame(setupJoin)">Join</button>
         </div>
         <p id="connection-status" style="margin-top: 15px; font-size: 12px; color: #e74c3c; line-height: 1.5; font-weight:bold;"></p>
-        <button class="btn" style="margin-top: 10px; font-size: 10px;" onclick="showScreen('main-menu')">Back</button>
+        <button class="btn" style="margin-top: 10px; font-size: 10px;" onclick="quitToMenu()">Back</button>
     </div>
 
     <div id="battle-screen" class="screen">
@@ -192,7 +192,7 @@
     <div id="game-over-screen" class="screen">
         <h1 id="game-over-title">Game Over!</h1>
         <p id="game-over-msg" style="line-height: 1.5; margin-bottom: 20px;"></p>
-        <button class="btn" onclick="location.reload()">Return to Menu</button>
+        <button class="btn" onclick="quitToMenu()">Return to Menu</button>
     </div>
 </div>
 
@@ -225,11 +225,49 @@
     let opponentWrong = false;
     let gameHasStarted = false;
 
-    // --- UTILITY ---
+    // --- LIFE CYCLE SECURITY CONTROL ---
+    // Cleans up any existing WebRTC pipelines to prevent ghost instances stacking up
+    function cleanupNetwork() {
+        console.log("Cleaning up network lifecycles...");
+        if (conn) {
+            try { conn.close(); } catch(e){}
+            conn = null;
+        }
+        if (peer) {
+            try { peer.disconnect(); peer.destroy(); } catch(e){}
+            peer = null;
+        }
+        gameHasStarted = false;
+    }
+
+    // Force release network reservations immediately when the user refreshes or closes the browser tab
+    window.addEventListener('beforeunload', () => {
+        cleanupNetwork();
+    });
+
+    function openSoloMenu() {
+        cleanupNetwork();
+        showScreen('solo-menu');
+    }
+
+    function openPvPMenu() {
+        cleanupNetwork();
+        document.getElementById('connection-status').innerText = "";
+        showScreen('pvp-menu');
+    }
+
+    function quitToMenu() {
+        cleanupNetwork();
+        clearInterval(timerInterval);
+        clearTimeout(botTimer);
+        showScreen('main-menu');
+    }
+
     function showScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
         document.getElementById(id).style.display = 'flex';
     }
+
     function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
     function prepareGame(actionFunction) {
@@ -244,7 +282,7 @@
         if(pendingAction) { pendingAction(); pendingAction = null; }
     }
 
-    // --- MATH GENERATION ---
+    // --- INFINITE MATH GENERATION ALGORITHM ---
     function generateQuestionData() {
         let type = Math.random() < 0.5 ? 'expand' : 'factorise';
         let qText = "", correct = "", wrongs = [];
@@ -352,82 +390,81 @@
         setTimeout(() => { updateHP(); checkWinLoss(); }, 1500);
     }
 
-    // --- BULLETPROOF PVP MODE ---
+    // --- ROBUST DISCONNECT-PROOF MULTIPLAYER LOGIC ---
     function updatePvPStatus(msg) { document.getElementById('connection-status').innerText = msg; }
 
     function setupHost(level) {
-        mode = 'pvp'; difficulty = level; isHost = true; gameHasStarted = false;
-        showScreen('pvp-menu'); updatePvPStatus("Connecting to Server...");
+        cleanupNetwork();
+        mode = 'pvp'; difficulty = level; isHost = true;
+        showScreen('pvp-menu'); updatePvPStatus("Connecting to cloud pipeline...");
         
         let roomId = 'MATH-' + Math.floor(100000 + Math.random() * 900000).toString();
-        peer = new Peer(roomId); // Removed custom config for stability
+        peer = new Peer(roomId); 
         
         peer.on('open', (id) => {
             let displayCode = id.replace('MATH-', '');
-            updatePvPStatus(`Room Created!\nGive this Code to your opponent:\n-> ${displayCode} <-\n\nWaiting for opponent...`);
+            updatePvPStatus(`Room Created!\nGive this Code to opponent:\n\n-> ${displayCode} <-\n\nWaiting for link...`);
         });
         
         peer.on('connection', (connection) => { 
             conn = connection; 
             setupPvPDataHandlers();
-            
-            // Wait for Joiner to confirm they are actually ready
-            conn.on('open', () => {
-                console.log("Host sees connection as open.");
-            });
         });
         
-        peer.on('error', (err) => updatePvPStatus("Server Error: " + err.type + "\nTry again."));
-        peer.on('disconnected', () => peer.reconnect());
+        peer.on('error', (err) => {
+            if(err.type === 'id-taken') {
+                updatePvPStatus("Room conflict detected on server. Retrying initialization...");
+                setTimeout(() => setupHost(level), 1000);
+            } else {
+                updatePvPStatus(`Server Handshake Error: ${err.type}`);
+            }
+        });
     }
 
     function setupJoin() {
-        mode = 'pvp'; isHost = false; gameHasStarted = false;
+        cleanupNetwork();
+        mode = 'pvp'; isHost = false;
         let rawInput = document.getElementById('join-id').value.trim().toUpperCase();
         if(!rawInput) { updatePvPStatus("Please enter a Room Code!"); return; }
 
         let joinId = /^\d{6}$/.test(rawInput) ? 'MATH-' + rawInput : (!rawInput.startsWith('MATH-') ? 'MATH-' + rawInput : rawInput);
-        showScreen('pvp-menu'); updatePvPStatus("Finding Room " + joinId.replace('MATH-', '') + "...");
+        showScreen('pvp-menu'); updatePvPStatus(`Locating room identifier: ${joinId.replace('MATH-', '')}...`);
         
         peer = new Peer(); 
         
         peer.on('open', () => { 
-            // Removed {reliable: true} to prevent browser hangs
             conn = peer.connect(joinId); 
             setupPvPDataHandlers();
             
             conn.on('open', () => {
-                updatePvPStatus("Connection established! Sending ready signal...");
-                // Step 2: Joiner tells host they are ready
+                updatePvPStatus("Synchronized! Negotiating battle state...");
                 conn.send({ type: 'joiner_ready', name: playerName, emoji: playerEmoji });
             });
         });
         
         peer.on('error', (err) => {
-            if (err.type === 'peer-unavailable') updatePvPStatus("Room not found. Check the code.");
-            else updatePvPStatus("Connection Error: " + err.type);
+            if (err.type === 'peer-unavailable') updatePvPStatus("Room not found. Check the code digits or ensure Host is waiting.");
+            else updatePvPStatus(`Broker Error: ${err.type}`);
         });
-        peer.on('disconnected', () => peer.reconnect());
     }
 
     function setupPvPDataHandlers() {
+        if (!conn) return;
+
         conn.on('data', (data) => {
-            
-            // --- HANDSHAKE LOGIC ---
+            // Strict Handshaking Sequence
             if(data.type === 'joiner_ready' && isHost) {
-                // Host received ready signal from Joiner. Send host data back and start.
                 conn.send({ type: 'host_ready', name: playerName, emoji: playerEmoji });
                 updateEnemyHUD(data.name, data.emoji);
                 startPvPScreen();
-                setTimeout(sendPvPQuestion, 2000); // Host triggers first question
+                setTimeout(sendPvPQuestion, 2000); 
             }
             else if(data.type === 'host_ready' && !isHost) {
-                // Joiner received host data. Start screen.
                 updateEnemyHUD(data.name, data.emoji);
                 startPvPScreen();
             }
             
-            // --- GAMEPLAY LOGIC ---
+            // Gameplay Sequence
             else if(data.type === 'question') {
                 opponentWrong = false; turnActive = true;
                 renderQuestionUI(data.qData.q, data.qData.ans, data.options);
@@ -455,9 +492,13 @@
 
         conn.on('close', () => {
             if(gameHasStarted) {
-                document.getElementById('question-area').innerText = "OPPONENT DISCONNECTED!";
+                document.getElementById('question-area').innerText = "OPPONENT LEFT THE BATTLE!";
                 disableButtons(); turnActive = false;
             }
+        });
+        
+        conn.on('error', (err) => {
+            console.log("Data connection error:", err);
         });
     }
 
@@ -478,13 +519,15 @@
     }
 
     function sendPvPQuestion() {
-        if (playerHP <= 0 || enemyHP <= 0) return;
+        if (playerHP <= 0 || enemyHP <= 0 || !gameHasStarted) return;
         let qData = generateQuestionData();
         let options = [qData.ans, ...qData.wrong]; options.sort(() => Math.random() - 0.5);
         
-        conn.send({ type: 'question', qData: qData, options: options });
-        opponentWrong = false; turnActive = true;
-        renderQuestionUI(qData.q, qData.ans, options);
+        if (conn && conn.open) {
+            conn.send({ type: 'question', qData: qData, options: options });
+            opponentWrong = false; turnActive = true;
+            renderQuestionUI(qData.q, qData.ans, options);
+        }
     }
 
     // --- SHARED BATTLE LOGIC ---
@@ -515,7 +558,7 @@
                 let elapsedSeconds = (Date.now() - pvpStartTime) / 1000;
                 let multiplier = 1 + Math.max(0, 15 - Math.min(15, elapsedSeconds)) / 15;
                 damage = Math.floor(20 * multiplier);
-                conn.send({ type: 'attack', amount: damage });
+                if(conn && conn.open) conn.send({ type: 'attack', amount: damage });
             }
 
             enemyHP -= damage; showDamage('enemy-sprite', damage);
@@ -540,7 +583,7 @@
                     document.getElementById('question-area').innerText = "Both incorrect! Stalemate!\nMoving to next question...";
                     if (isHost && playerHP > 0 && enemyHP > 0) setTimeout(sendPvPQuestion, 3000);
                 } else {
-                    conn.send({ type: 'wrong' });
+                    if(conn && conn.open) conn.send({ type: 'wrong' });
                     document.getElementById('question-area').innerText = "Incorrect! Waiting for opponent...";
                 }
             }
@@ -575,6 +618,7 @@
             title.innerText = "DEFEAT..."; title.style.color = "#e74c3c";
             msg.innerText = mode === 'solo' ? `${playerName} fainted! Keep practicing!` : "Your opponent defeated you!";
         }
+        cleanupNetwork();
     }
 
     // --- ANIMATIONS ---

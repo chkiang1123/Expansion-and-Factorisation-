@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Math Battle: Solo & PvP Edition</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
         body {
             font-family: 'Press Start 2P', monospace; background-color: #2c3e50;
             color: #333; display: flex; justify-content: center; align-items: center;
-            height: 100vh; margin: 0;
+            height: 100vh; margin: 0; user-select: none;
         }
 
         #game-container {
@@ -225,22 +225,39 @@
     let opponentWrong = false;
     let gameHasStarted = false;
 
-    // --- LIFE CYCLE SECURITY CONTROL ---
-    // Cleans up any existing WebRTC pipelines to prevent ghost instances stacking up
+    // Production Public STUN Server Configurations (Crucial for GitHub Pages / HTTPS execution)
+    const productionIceConfig = {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        }
+    };
+
+    // --- LIFE CYCLE MEMORY SECURITY ---
     function cleanupNetwork() {
-        console.log("Cleaning up network lifecycles...");
+        console.log("Wiping background socket threads...");
         if (conn) {
-            try { conn.close(); } catch(e){}
+            try { 
+                conn.removeAllListeners();
+                conn.close(); 
+            } catch(e){}
             conn = null;
         }
         if (peer) {
-            try { peer.disconnect(); peer.destroy(); } catch(e){}
+            try { 
+                peer.removeAllListeners();
+                peer.disconnect(); 
+                peer.destroy(); 
+            } catch(e){}
             peer = null;
         }
         gameHasStarted = false;
     }
 
-    // Force release network reservations immediately when the user refreshes or closes the browser tab
+    // Force network release instantly on exit or page tab refresh
     window.addEventListener('beforeunload', () => {
         cleanupNetwork();
     });
@@ -390,16 +407,16 @@
         setTimeout(() => { updateHP(); checkWinLoss(); }, 1500);
     }
 
-    // --- ROBUST DISCONNECT-PROOF MULTIPLAYER LOGIC ---
+    // --- DISCONNECT-PROOF MULTIPLAYER LOGIC ---
     function updatePvPStatus(msg) { document.getElementById('connection-status').innerText = msg; }
 
     function setupHost(level) {
         cleanupNetwork();
         mode = 'pvp'; difficulty = level; isHost = true;
-        showScreen('pvp-menu'); updatePvPStatus("Connecting to cloud pipeline...");
+        showScreen('pvp-menu'); updatePvPStatus("Binding secure STUN pipeline...");
         
         let roomId = 'MATH-' + Math.floor(100000 + Math.random() * 900000).toString();
-        peer = new Peer(roomId); 
+        peer = new Peer(roomId, productionIceConfig); 
         
         peer.on('open', (id) => {
             let displayCode = id.replace('MATH-', '');
@@ -413,10 +430,10 @@
         
         peer.on('error', (err) => {
             if(err.type === 'id-taken') {
-                updatePvPStatus("Room conflict detected on server. Retrying initialization...");
+                updatePvPStatus("Room conflict detected on server. Re-allocating dynamic key...");
                 setTimeout(() => setupHost(level), 1000);
             } else {
-                updatePvPStatus(`Server Handshake Error: ${err.type}`);
+                updatePvPStatus(`Broker Error: ${err.type}`);
             }
         });
     }
@@ -428,16 +445,16 @@
         if(!rawInput) { updatePvPStatus("Please enter a Room Code!"); return; }
 
         let joinId = /^\d{6}$/.test(rawInput) ? 'MATH-' + rawInput : (!rawInput.startsWith('MATH-') ? 'MATH-' + rawInput : rawInput);
-        showScreen('pvp-menu'); updatePvPStatus(`Locating room identifier: ${joinId.replace('MATH-', '')}...`);
+        showScreen('pvp-menu'); updatePvPStatus(`Locating cloud entry: ${joinId.replace('MATH-', '')}...`);
         
-        peer = new Peer(); 
+        peer = new Peer(productionIceConfig); 
         
         peer.on('open', () => { 
             conn = peer.connect(joinId); 
             setupPvPDataHandlers();
             
             conn.on('open', () => {
-                updatePvPStatus("Synchronized! Negotiating battle state...");
+                updatePvPStatus("Synchronized! Processing structural handshake...");
                 conn.send({ type: 'joiner_ready', name: playerName, emoji: playerEmoji });
             });
         });
@@ -452,7 +469,7 @@
         if (!conn) return;
 
         conn.on('data', (data) => {
-            // Strict Handshaking Sequence
+            // Asymmetric Handshake Loop Control
             if(data.type === 'joiner_ready' && isHost) {
                 conn.send({ type: 'host_ready', name: playerName, emoji: playerEmoji });
                 updateEnemyHUD(data.name, data.emoji);
@@ -464,7 +481,7 @@
                 startPvPScreen();
             }
             
-            // Gameplay Sequence
+            // Core Game States
             else if(data.type === 'question') {
                 opponentWrong = false; turnActive = true;
                 renderQuestionUI(data.qData.q, data.qData.ans, data.options);
@@ -496,10 +513,6 @@
                 disableButtons(); turnActive = false;
             }
         });
-        
-        conn.on('error', (err) => {
-            console.log("Data connection error:", err);
-        });
     }
 
     function updateEnemyHUD(name, emoji) {
@@ -530,7 +543,7 @@
         }
     }
 
-    // --- SHARED BATTLE LOGIC ---
+    // --- SHARED GAME ENGINE LOGIC ---
     function renderQuestionUI(qText, ans, options) {
         pvpStartTime = Date.now(); document.getElementById('question-area').innerText = qText; currentCorrectAnswer = ans;
         for (let i = 0; i < 4; i++) {
@@ -621,7 +634,7 @@
         cleanupNetwork();
     }
 
-    // --- ANIMATIONS ---
+    // --- RENDER ANIMATIONS ---
     function animateSprite(id) {
         let el = document.getElementById(id); let orig = el.style.transform;
         if(id === 'player-sprite') el.style.transform = 'scaleX(-1) translateX(-30px)';

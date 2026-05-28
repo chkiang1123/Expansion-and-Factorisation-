@@ -144,17 +144,17 @@
     <div id="pvp-menu" class="screen">
         <h2>Multiplayer PvP</h2>
         <div style="border: 2px dashed #333; padding: 15px; margin-bottom: 15px;">
-            <p style="font-size: 12px; margin-bottom: 10px;">HOST A GAME (Choose Difficulty)</p>
+            <p style="font-size: 12px; margin-bottom: 10px;">HOST A GAME</p>
             <button class="btn" style="font-size: 10px;" onclick="prepareGame(() => setupHost('easy'))">Easy</button>
             <button class="btn" style="font-size: 10px;" onclick="prepareGame(() => setupHost('medium'))">Med</button>
             <button class="btn" style="font-size: 10px;" onclick="prepareGame(() => setupHost('hard'))">Hard</button>
         </div>
         <div>
             <p style="font-size: 12px; margin-bottom: 10px;">JOIN A GAME</p>
-            <input type="text" id="join-id" class="input-box" placeholder="e.g. MATH-123456" maxlength="15"><br>
+            <input type="text" id="join-id" class="input-box" placeholder="Code (e.g. 123456)" maxlength="15"><br>
             <button class="btn" onclick="prepareGame(setupJoin)">Join</button>
         </div>
-        <p id="connection-status" style="margin-top: 15px; font-size: 12px; color: #e74c3c; line-height: 1.5;"></p>
+        <p id="connection-status" style="margin-top: 15px; font-size: 12px; color: #e74c3c; line-height: 1.5; font-weight:bold;"></p>
         <button class="btn" style="margin-top: 10px; font-size: 10px;" onclick="showScreen('main-menu')">Back</button>
     </div>
 
@@ -165,11 +165,11 @@
         </div>
 
         <div class="hud hud-enemy">
-            <div id="enemy-name">Wild Algebro</div>
+            <div id="enemy-name">Waiting...</div>
             <div class="hp-bar-container"><div id="enemy-hp" class="hp-bar"></div></div>
             <div id="enemy-hp-text" class="hp-text">200/200</div>
         </div>
-        <div class="sprite sprite-enemy" id="enemy-sprite">🦊</div>
+        <div class="sprite sprite-enemy" id="enemy-sprite">❓</div>
 
         <div class="hud hud-player">
             <div><span id="player-name-display">Mathachu</span> (You)</div>
@@ -224,7 +224,7 @@
     let pvpStartTime = 0;
     let opponentWrong = false;
 
-    // --- WebRTC UPGRADE: Google STUN Servers ---
+    // --- WebRTC STUN Servers ---
     const customPeerConfig = {
         config: {
             'iceServers': [
@@ -240,10 +240,8 @@
         document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
         document.getElementById(id).style.display = 'flex';
     }
-
     function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-    // --- CHARACTER SELECTION LOGIC ---
     function prepareGame(actionFunction) {
         pendingAction = actionFunction;
         showScreen('char-select-screen');
@@ -252,17 +250,15 @@
     function selectCharacter(emoji, name) {
         playerEmoji = emoji;
         playerName = name;
-        
         document.getElementById('player-sprite').innerText = emoji;
         document.getElementById('player-name-display').innerText = name;
-
         if(pendingAction) {
             pendingAction();
             pendingAction = null;
         }
     }
 
-    // --- INFINITE MATH GENERATION ALGORITHM ---
+    // --- MATH GENERATION ---
     function generateQuestionData() {
         let type = Math.random() < 0.5 ? 'expand' : 'factorise';
         let qText = "", correct = "", wrongs = [];
@@ -271,101 +267,74 @@
         let oppSign = sign === '+' ? '-' : '+';
 
         if (difficulty === 'easy') {
-            let a = rand(2, 9);
-            let b = rand(1, 5);
-            let c = rand(1, 9);
-            while (b === c || (b%2===0 && c%2===0)) { c = rand(1, 9); } 
-            
+            let a = rand(2, 9), b = rand(1, 5), c = rand(1, 9);
+            while (b === c || (b%2===0 && c%2===0)) c = rand(1, 9); 
             let bTerm = b === 1 ? v : `${b}${v}`;
             let abTerm = (a * b) === 1 ? v : `${a * b}${v}`;
             
             if (type === 'expand') {
-                qText = `Expand: ${a}(${bTerm} ${sign} ${c})`;
-                correct = `${abTerm} ${sign} ${a * c}`;
+                qText = `Expand: ${a}(${bTerm} ${sign} ${c})`; correct = `${abTerm} ${sign} ${a * c}`;
                 wrongs = [`${abTerm} ${sign} ${c}`, `${bTerm} ${sign} ${a * c}`, `${abTerm} ${oppSign} ${a * c}`];
             } else {
-                qText = `Factorise: ${abTerm} ${sign} ${a * c}`;
-                correct = `${a}(${bTerm} ${sign} ${c})`;
+                qText = `Factorise: ${abTerm} ${sign} ${a * c}`; correct = `${a}(${bTerm} ${sign} ${c})`;
                 wrongs = [`${a}(${bTerm} ${oppSign} ${c})`, `${a * b}(${v} ${sign} ${c})`, `${a}(${bTerm} ${sign} ${a * c})`];
             }
         } else if (difficulty === 'medium') {
             let subtype = Math.random() < 0.5 ? 'diff_sq' : 'grouping';
-            
             if (subtype === 'diff_sq') {
-                let a = rand(1, 6);
-                let b = rand(1, 9);
-                let aTerm = a === 1 ? v : `${a}${v}`;
-                let a2Term = a === 1 ? `${v}²` : `${a * a}${v}²`;
-                let b2 = b * b;
+                let a = rand(1, 6), b = rand(1, 9);
+                let aTerm = a === 1 ? v : `${a}${v}`, a2Term = a === 1 ? `${v}²` : `${a * a}${v}²`, b2 = b * b;
                 
                 if (type === 'expand') {
-                    qText = `Expand: (${aTerm} - ${b})(${aTerm} + ${b})`;
-                    correct = `${a2Term} - ${b2}`;
+                    qText = `Expand: (${aTerm} - ${b})(${aTerm} + ${b})`; correct = `${a2Term} - ${b2}`;
                     wrongs = [`${a2Term} + ${b2}`, `${a * 2}${v}² - ${b2}`, `${a2Term} - ${b}`];
                 } else {
-                    qText = `Factorise: ${a2Term} - ${b2}`;
-                    correct = `(${aTerm} - ${b})(${aTerm} + ${b})`;
+                    qText = `Factorise: ${a2Term} - ${b2}`; correct = `(${aTerm} - ${b})(${aTerm} + ${b})`;
                     wrongs = [`(${aTerm} - ${b})²`, `(${aTerm} + ${b})²`, `(${aTerm} - ${b2})(${aTerm} + 1)`];
                 }
             } else {
-                let v1 = ['x', 'm', 'p'][rand(0, 2)];
-                let v2 = ['y', 'n', 'q'][rand(0, 2)];
-                let c = rand(1, 7);
-                let d = rand(2, 7);
+                let v1 = ['x', 'm', 'p'][rand(0, 2)], v2 = ['y', 'n', 'q'][rand(0, 2)], c = rand(1, 7), d = rand(2, 7);
                 qText = `Factorise: ${v1}(${v2} + ${c}) ${sign} ${d}(${v2} + ${c})`;
                 correct = `(${v1} ${sign} ${d})(${v2} + ${c})`;
                 wrongs = [`(${v1} ${oppSign} ${d})(${v2} + ${c})`, `(${v1} ${sign} ${d})(${v2} - ${c})`, `${v1}${d}(${v2} + ${c})`];
             }
         } else { 
-            let a = rand(1, 5);
-            let b = rand(1, 9);
-            let aTerm = a === 1 ? v : `${a}${v}`;
-            let a2Term = a === 1 ? `${v}²` : `${a * a}${v}²`;
-            let midTerm = `${2 * a * b}${v}`;
-            let b2 = b * b;
+            let a = rand(1, 5), b = rand(1, 9);
+            let aTerm = a === 1 ? v : `${a}${v}`, a2Term = a === 1 ? `${v}²` : `${a * a}${v}²`;
+            let midTerm = `${2 * a * b}${v}`, b2 = b * b;
 
             if (type === 'expand') {
-                qText = `Expand: (${aTerm} ${sign} ${b})²`;
-                correct = `${a2Term} ${sign} ${midTerm} + ${b2}`;
+                qText = `Expand: (${aTerm} ${sign} ${b})²`; correct = `${a2Term} ${sign} ${midTerm} + ${b2}`;
                 wrongs = [`${a2Term} + ${b2}`, `${a2Term} ${sign} ${a * b}${v} + ${b2}`, `${a2Term} ${oppSign} ${midTerm} + ${b2}`];
             } else {
-                qText = `Factorise: ${a2Term} ${sign} ${midTerm} + ${b2}`;
-                correct = `(${aTerm} ${sign} ${b})²`;
+                qText = `Factorise: ${a2Term} ${sign} ${midTerm} + ${b2}`; correct = `(${aTerm} ${sign} ${b})²`;
                 wrongs = [`(${aTerm} ${oppSign} ${b})²`, `(${aTerm} ${sign} ${b2})²`, `(${aTerm} - ${b})(${aTerm} + ${b})`];
             }
         }
         
         wrongs = [...new Set(wrongs)];
-        while(wrongs.length < 3) { wrongs.push("None of the above"); }
-
+        while(wrongs.length < 3) wrongs.push("None of the above");
         return { q: qText, ans: correct, wrong: wrongs };
     }
 
-    // --- SOLO MODE LOGIC ---
+    // --- SOLO MODE ---
     function startSolo(level) {
-        mode = 'solo';
-        difficulty = level;
+        mode = 'solo'; difficulty = level;
         maxHP = level === 'easy' ? 150 : (level === 'medium' ? 250 : 350);
         playerHP = maxHP; enemyHP = maxHP;
-        
         document.getElementById('enemy-name').innerText = `Wild Algebro (Lv.${level.charAt(0).toUpperCase()})`;
         document.getElementById('enemy-sprite').innerText = '🦊';
         document.getElementById('timer-container').style.display = 'block';
-        updateHP();
-        showScreen('battle-screen');
-        nextSoloTurn();
+        updateHP(); showScreen('battle-screen'); nextSoloTurn();
     }
 
     function nextSoloTurn() {
         clearTimeout(botTimer); 
-        
         let qData = generateQuestionData();
         let options = [qData.ans, ...qData.wrong];
         options.sort(() => Math.random() - 0.5);
         renderQuestionUI(qData.q, qData.ans, options);
-        
-        turnActive = true;
-        resetTimer();
+        turnActive = true; resetTimer();
 
         let botDelay = 15000;
         if (difficulty === 'easy') botDelay = rand(10000, 16000); 
@@ -379,68 +348,65 @@
     }
 
     function handleBotAnswer() {
-        turnActive = false;
-        clearInterval(timerInterval);
-        disableButtons();
-        animateSprite('enemy-sprite');
-        
-        let dmg = 25; 
-        playerHP -= dmg;
-        showDamage('player-sprite', dmg);
-        
+        turnActive = false; clearInterval(timerInterval); disableButtons(); animateSprite('enemy-sprite');
+        let dmg = 25; playerHP -= dmg; showDamage('player-sprite', dmg);
         document.getElementById('question-area').innerText = "Algebro answered first!\nYou took " + dmg + " damage!";
-        
         setTimeout(() => { updateHP(); checkWinLoss(); }, 2000);
     }
 
     function resetTimer() {
-        clearInterval(timerInterval);
-        timeLeft = timeLimit;
-        updateTimerUI();
+        clearInterval(timerInterval); timeLeft = timeLimit; updateTimerUI();
         timerInterval = setInterval(() => {
-            timeLeft -= 0.1;
-            updateTimerUI();
+            timeLeft -= 0.1; updateTimerUI();
             if (timeLeft <= 0) { clearInterval(timerInterval); handleSoloTimeout(); }
         }, 100);
     }
 
     function updateTimerUI() {
         document.getElementById('time-text').innerText = Math.ceil(timeLeft);
-        let pct = (timeLeft / timeLimit) * 100;
-        document.getElementById('timer-bar').style.width = Math.max(0, pct) + '%';
+        document.getElementById('timer-bar').style.width = Math.max(0, (timeLeft / timeLimit) * 100) + '%';
     }
 
     function handleSoloTimeout() {
         if(!turnActive) return;
-        turnActive = false;
-        clearTimeout(botTimer); 
-        disableButtons();
-        animateSprite('enemy-sprite');
+        turnActive = false; clearTimeout(botTimer); disableButtons(); animateSprite('enemy-sprite');
         let dmg = 25; playerHP -= dmg; showDamage('player-sprite', dmg);
         document.getElementById('question-area').innerText = `Time's up! Algebro dealt ${dmg} damage!`;
         setTimeout(() => { updateHP(); checkWinLoss(); }, 1500);
     }
 
-    // --- PVP MODE LOGIC ---
+    // --- PVP MODE UPGRADE ---
     function updatePvPStatus(msg) { document.getElementById('connection-status').innerText = msg; }
+
+    function applyPeerStability(peerObj) {
+        // Automatically try to reconnect if the PeerJS server drops connection
+        peerObj.on('disconnected', () => {
+            console.log("Disconnected from signaling server. Reconnecting...");
+            peerObj.reconnect();
+        });
+    }
 
     function setupHost(level) {
         mode = 'pvp'; difficulty = level; isHost = true;
         showScreen('pvp-menu'); 
         updatePvPStatus("Creating Reliable Room...");
         
-        // Updated to explicitly use a prefix so collisions don't happen
         let roomId = 'MATH-' + Math.floor(100000 + Math.random() * 900000).toString();
-        
         peer = new Peer(roomId, customPeerConfig);
+        applyPeerStability(peer);
         
-        peer.on('open', (id) => updatePvPStatus(`Room Created!\nYour Room Code: ${id}\nWaiting for opponent...`));
+        peer.on('open', (id) => {
+            // Only show the 6 numbers to make it easy for students to read
+            let displayCode = id.replace('MATH-', '');
+            updatePvPStatus(`Room Created!\nGive this Code to your opponent:\n-> ${displayCode} <-\n\nWaiting for opponent...`);
+        });
         
         peer.on('connection', (connection) => { 
             conn = connection; 
-            // FIX: The host must wait for the connection tube to 'open' before starting
-            conn.on('open', () => {
-                startPvP(); 
+            conn.on('open', () => startPvP());
+            conn.on('close', () => {
+                document.getElementById('question-area').innerText = "OPPONENT DISCONNECTED!";
+                disableButtons();
             });
         });
         
@@ -449,36 +415,43 @@
 
     function setupJoin() {
         mode = 'pvp'; isHost = false;
-        // Make it uppercase automatically to avoid case-sensitive errors
-        let joinId = document.getElementById('join-id').value.trim().toUpperCase();
         
-        if(!joinId) { 
-            updatePvPStatus("Please enter a valid Room Code!"); 
-            return; 
+        // FOOLPROOF INPUT LOGIC: Removes spaces, forces uppercase
+        let rawInput = document.getElementById('join-id').value.trim().toUpperCase();
+        
+        if(!rawInput) { updatePvPStatus("Please enter a Room Code!"); return; }
+
+        // If they only typed numbers, automatically add the MATH- prefix
+        let joinId = rawInput;
+        if (/^\d{6}$/.test(rawInput)) {
+            joinId = 'MATH-' + rawInput;
+        } else if (!rawInput.startsWith('MATH-')) {
+            joinId = 'MATH-' + rawInput; // Fallback catch
         }
         
         showScreen('pvp-menu'); 
-        updatePvPStatus("Connecting to Room " + joinId + "...");
+        updatePvPStatus("Connecting to Room " + joinId.replace('MATH-', '') + "...");
         
         peer = new Peer(undefined, customPeerConfig);
+        applyPeerStability(peer);
         
         peer.on('open', () => { 
             conn = peer.connect(joinId, { reliable: true }); 
-            // FIX: Joiner waits for the connection to open, then starts
-            conn.on('open', () => {
-                startPvP();
+            conn.on('open', () => startPvP());
+            conn.on('close', () => {
+                document.getElementById('question-area').innerText = "OPPONENT DISCONNECTED!";
+                disableButtons();
             });
             conn.on('error', (err) => updatePvPStatus("Connection Error: " + err));
         });
         
         peer.on('error', (err) => {
-            if (err.type === 'peer-unavailable') updatePvPStatus("Could not find Room " + joinId + ". Ensure host is ready.");
+            if (err.type === 'peer-unavailable') updatePvPStatus("Room not found. Check the code and make sure Host is ready.");
             else updatePvPStatus("Connection Error: " + err.type);
         });
     }
 
     function startPvP() {
-        // Send initial character data now that we know the connection is fully open
         conn.send({ type: 'init_char', name: playerName, emoji: playerEmoji });
 
         maxHP = 200; playerHP = maxHP; enemyHP = maxHP; 
@@ -486,11 +459,9 @@
         document.getElementById('timer-text-display').innerText = "PvP RACE!";
         document.getElementById('timer-bar').style.display = 'none';
         
-        updateHP();
-        showScreen('battle-screen');
+        updateHP(); showScreen('battle-screen');
         document.getElementById('question-area').innerText = "Connected! Prepare for battle...";
         
-        // Let players read the "Connected" text briefly before questions start
         if(isHost) setTimeout(sendPvPQuestion, 2000);
 
         conn.on('data', (data) => {
@@ -499,20 +470,15 @@
                 document.getElementById('enemy-sprite').innerText = data.emoji;
             }
             else if(data.type === 'question') {
-                opponentWrong = false;
-                turnActive = true;
+                opponentWrong = false; turnActive = true;
                 renderQuestionUI(data.qData.q, data.qData.ans, data.options);
             } 
             else if(data.type === 'attack') {
                 if(!turnActive && opponentWrong) return; 
-                turnActive = false;
-                disableButtons();
-                animateSprite('enemy-sprite');
-                playerHP -= data.amount;
-                showDamage('player-sprite', data.amount);
+                turnActive = false; disableButtons(); animateSprite('enemy-sprite');
+                playerHP -= data.amount; showDamage('player-sprite', data.amount);
                 document.getElementById('question-area').innerText = `Opponent answered faster! Took ${data.amount} damage!`;
-                updateHP();
-                checkWinLoss();
+                updateHP(); checkWinLoss();
                 
                 if(isHost && playerHP > 0) setTimeout(sendPvPQuestion, 2500);
             }
@@ -523,9 +489,7 @@
                     if (isHost && playerHP > 0 && enemyHP > 0) setTimeout(sendPvPQuestion, 3000);
                 } else {
                     let textUI = document.getElementById('question-area').innerText;
-                    if(!textUI.includes("(Opponent missed!)")) {
-                        document.getElementById('question-area').innerText = textUI + "\n(Opponent missed!)";
-                    }
+                    if(!textUI.includes("(Opponent missed!)")) document.getElementById('question-area').innerText = textUI + "\n(Opponent missed!)";
                 }
             }
         });
@@ -533,15 +497,12 @@
 
     function sendPvPQuestion() {
         if (playerHP <= 0 || enemyHP <= 0) return;
-        
         let qData = generateQuestionData();
         let options = [qData.ans, ...qData.wrong];
         options.sort(() => Math.random() - 0.5);
         
         conn.send({ type: 'question', qData: qData, options: options });
-        
-        opponentWrong = false; 
-        turnActive = true;
+        opponentWrong = false; turnActive = true;
         renderQuestionUI(qData.q, qData.ans, options);
     }
 
@@ -552,9 +513,7 @@
         currentCorrectAnswer = ans;
         for (let i = 0; i < 4; i++) {
             let btn = document.getElementById('opt' + i);
-            btn.innerText = options[i];
-            btn.disabled = false;
-            btn.style.backgroundColor = 'transparent';
+            btn.innerText = options[i]; btn.disabled = false; btn.style.backgroundColor = 'transparent';
             btn.onclick = () => handleAnswerClick(options[i], btn);
         }
     }
@@ -568,10 +527,7 @@
         clearTimeout(botTimer); 
 
         if (selected === currentCorrectAnswer) {
-            turnActive = false;
-            clearInterval(timerInterval);
-            disableButtons();
-            animateSprite('player-sprite');
+            turnActive = false; clearInterval(timerInterval); disableButtons(); animateSprite('player-sprite');
             
             let damage = 25;
             if(mode === 'solo') {
@@ -584,13 +540,11 @@
                 conn.send({ type: 'attack', amount: damage });
             }
 
-            enemyHP -= damage;
-            showDamage('enemy-sprite', damage);
+            enemyHP -= damage; showDamage('enemy-sprite', damage);
             document.getElementById('question-area').innerText = `Correct! Dealt ${damage} damage!`;
             
             setTimeout(() => {
-                updateHP();
-                checkWinLoss();
+                updateHP(); checkWinLoss();
                 if(mode === 'pvp' && isHost && enemyHP > 0) setTimeout(sendPvPQuestion, 1500);
             }, 1000);
 
@@ -598,18 +552,12 @@
             btnElement.style.backgroundColor = '#ffcccc';
             
             if(mode === 'solo') {
-                turnActive = false;
-                clearInterval(timerInterval);
-                disableButtons();
-                animateSprite('enemy-sprite');
-                let dmg = 25; playerHP -= dmg;
-                showDamage('player-sprite', dmg);
+                turnActive = false; clearInterval(timerInterval); disableButtons(); animateSprite('enemy-sprite');
+                let dmg = 25; playerHP -= dmg; showDamage('player-sprite', dmg);
                 document.getElementById('question-area').innerText = `Wrong! Correct was:\n${currentCorrectAnswer}`;
                 setTimeout(() => { updateHP(); checkWinLoss(); }, 2000);
             } else {
-                turnActive = false;
-                disableButtons(); 
-                
+                turnActive = false; disableButtons(); 
                 if (opponentWrong) {
                     document.getElementById('question-area').innerText = "Both incorrect! Stalemate!\nMoving to next question...";
                     if (isHost && playerHP > 0 && enemyHP > 0) setTimeout(sendPvPQuestion, 3000);
@@ -631,7 +579,6 @@
         let getCol = (pct) => pct > 50 ? '#2ecc71' : (pct > 20 ? '#f1c40f' : '#e74c3c');
         document.getElementById('player-hp').style.backgroundColor = getCol(pPct);
         document.getElementById('enemy-hp').style.backgroundColor = getCol(ePct);
-
         document.getElementById('player-hp-text').innerText = playerHP + " / " + maxHP;
         document.getElementById('enemy-hp-text').innerText = enemyHP + " / " + maxHP;
     }
@@ -643,9 +590,7 @@
     }
 
     function endGame(playerWon) {
-        clearInterval(timerInterval);
-        clearTimeout(botTimer); 
-        showScreen('game-over-screen');
+        clearInterval(timerInterval); clearTimeout(botTimer); showScreen('game-over-screen');
         let title = document.getElementById('game-over-title');
         let msg = document.getElementById('game-over-msg');
         
@@ -660,8 +605,7 @@
 
     // --- ANIMATIONS ---
     function animateSprite(id) {
-        let el = document.getElementById(id);
-        let orig = el.style.transform;
+        let el = document.getElementById(id); let orig = el.style.transform;
         if(id === 'player-sprite') el.style.transform = 'scaleX(-1) translateX(-30px)';
         else el.style.transform = 'translateX(-30px)';
         setTimeout(() => { el.style.transform = orig || (id === 'player-sprite' ? 'scaleX(-1)' : 'none'); }, 150);
@@ -671,8 +615,7 @@
         let target = document.getElementById(targetId);
         let dmg = document.createElement('div');
         dmg.className = 'damage-text'; dmg.innerText = "-" + amount;
-        dmg.style.top = (target.offsetTop + 20) + 'px';
-        dmg.style.left = (target.offsetLeft + 20) + 'px';
+        dmg.style.top = (target.offsetTop + 20) + 'px'; dmg.style.left = (target.offsetLeft + 20) + 'px';
         document.getElementById('battle-screen').appendChild(dmg);
         
         let start = Date.now();
